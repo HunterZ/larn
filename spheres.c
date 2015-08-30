@@ -4,14 +4,16 @@
   sphboom(x,y)       Function to perform the effects of a sphere detonation
   movsphere()        Function to look for and move spheres of annihilation
 */
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
+#include <stdlib.h>
 
-#define min(x,y) (((x)>(y))?(y):(x))
-#define max(x,y) (((x)>(y))?(x):(y))
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
+
+
+static void	sphboom(int x, int y);
+
+
 
 /*
  *  newsphere(x,y,dir,lifetime)  Function to create a new sphere of annihilation
@@ -22,11 +24,11 @@
  *    sphere in lifetime (in turns)
  *  Returns the number of spheres currently in existence
  */
-newsphere(x,y,dir,life)
-    int x,y,dir,life;
-    {
-    int m;
-    struct sphere *sp;
+int newsphere(int x, int y, int dir, int life)
+{
+	int m;
+	struct sphere *sp;
+
     if (((sp=(struct sphere *)malloc(sizeof(struct sphere)))) == 0)
         return(c[SPHCAST]); /* can't malloc, therefore failure */
     if (dir>=9) dir=0;  /* no movement if direction not found */
@@ -40,24 +42,24 @@ newsphere(x,y,dir,life)
         {
         show1cell(x,y);     /* show the demon (ha ha) */
         cursors(); lprintf("\nThe %s dispels the sphere!",monster[m].name);
-        beep(); rmsphere(x,y);  /* remove any spheres that are here */
+        rmsphere(x,y);  /* remove any spheres that are here */
         return(c[SPHCAST]);
         }
     if (m==DISENCHANTRESS) /* disenchantress cancels spheres */
         {
-        cursors(); lprintf("\nThe %s causes cancellation of the sphere!",monster[m].name); beep();
+        cursors(); lprintf("\nThe %s causes cancellation of the sphere!",monster[m].name);
 boom:   sphboom(x,y);   /* blow up stuff around sphere */
         rmsphere(x,y);  /* remove any spheres that are here */
         return(c[SPHCAST]);
         }
     if (c[CANCELLATION]) /* cancellation cancels spheres */
         {
-        cursors(); lprcat("\nAs the cancellation takes effect, you hear a great earth shaking blast!"); beep();
+        cursors(); lprcat("\nAs the cancellation takes effect, you hear a great earth shaking blast!");
         goto boom;
         }
     if (item[x][y]==OANNIHILATION) /* collision of spheres detonates spheres */
         {
-        cursors(); lprcat("\nTwo spheres of annihilation collide! You hear a great earth shaking blast!"); beep();
+        cursors(); lprcat("\nTwo spheres of annihilation collide! You hear a great earth shaking blast!");
         rmsphere(x,y);
         goto boom;
         }
@@ -65,7 +67,7 @@ boom:   sphboom(x,y);   /* blow up stuff around sphere */
         {
         cursors();
         lprcat("\nYou have been enveloped by the zone of nothingness!\n");
-        beep(); rmsphere(x,y);  /* remove any spheres that are here */
+        rmsphere(x,y);  /* remove any spheres that are here */
         nap(4000);  died(258);
         }
     item[x][y]=OANNIHILATION;  mitem[x][y]=0;  know[x][y]=1;
@@ -77,7 +79,10 @@ boom:   sphboom(x,y);   /* blow up stuff around sphere */
         sp->p = spheres;    spheres = sp;
         }
     return(++c[SPHCAST]);   /* one more sphere in the world */
-    }
+}
+
+    
+    
 
 /*
  *  rmsphere(x,y)       Function to delete a sphere of annihilation from list
@@ -86,10 +91,10 @@ boom:   sphboom(x,y);   /* blow up stuff around sphere */
  *  Enter with the coordinates of the sphere (on current level)
  *  Returns the number of spheres currently in existence
  */
-rmsphere(x,y)
-    int x,y;
-    {
-    register struct sphere *sp,*sp2=0;
+int rmsphere(int x, int y)
+{
+	struct sphere *sp, *sp2 = 0;
+		
     for (sp=spheres; sp; sp2=sp,sp=sp->p)
       if (level==sp->lev)   /* is sphere on this level? */
         if ((x==sp->x) && (y==sp->y))   /* locate sphere at this location */
@@ -102,8 +107,12 @@ rmsphere(x,y)
                 { sp2->p = sp->p;  free((char*)sp); }
             break;
             }
-    return(c[SPHCAST]); /* return number of spheres in the world */
-    }
+
+	/* return number of spheres in the world */
+	return c[SPHCAST]; 
+}
+
+    
 
 /*
  *  sphboom(x,y)    Function to perform the effects of a sphere detonation
@@ -111,10 +120,10 @@ rmsphere(x,y)
  *
  *  Enter with the coordinates of the blast, Returns no value
  */
-static sphboom(x,y)
-    int x,y;
-    {
-    register int i,j;
+static void sphboom(int x, int y)
+{
+	int i, j;
+
     if (c[HOLDMONST]) c[HOLDMONST]=1;
     if (c[CANCELLATION]) c[CANCELLATION]=1;
     for (j=max(1,x-2); j<min(x+3,MAXX-1); j++)
@@ -124,13 +133,15 @@ static sphboom(x,y)
         show1cell(j,i);
         if (playerx==j && playery==i)
             {
-            cursors(); beep();
+            cursors();
             lprcat("\nYou were too close to the sphere!");
             nap(3000);
             died(283); /* player killed in explosion */
             }
         }
-    }
+}
+
+
 
 /*
  *  movsphere()     Function to look for and move spheres of annihilation
@@ -143,11 +154,12 @@ static sphboom(x,y)
  *  No value is returned.
  */
 #define SPHMAX 20   /* maximum number of spheres movsphere can handle */
-movsphere()
-    {
-    register int x,y,dir,len;
-    register struct sphere *sp,*sp2;
-    struct sphere sph[SPHMAX];
+
+void movsphere(void)
+{
+	int x, y, dir, len;
+	struct sphere *sp, *sp2;
+	struct sphere sph[SPHMAX];
 
     /* first duplicate sphere list */
     for (sp=0,x=0,sp2=spheres; sp2; sp2=sp2->p) /* look through sphere list */
@@ -178,5 +190,6 @@ movsphere()
                         rmsphere(x,y);
                         newsphere(x+diroffx[dir],y+diroffy[dir],dir,len);
             };
-        }
-    }
+	}
+}
+

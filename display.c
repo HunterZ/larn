@@ -1,8 +1,9 @@
-/* display.c */
-#include "header.h"
-#include "larndefs.h"
-#include "objects.h"
-#include "player.h"
+#include <string.h>
+
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
+
 
 #define botsub( _idx, _x, _y, _str )        \
     if ( c[(_idx)] != cbak[(_idx)] )        \
@@ -12,32 +13,65 @@
     lprintf( (_str), (long)c[(_idx)] ); \
     }
 
+#define nlprc(_ch) lprc(_ch)
+
+
+static void	bot_hpx(void);
+
+static void	bot_spellx(void);
+
+static void	botside(void);
+
+static void	seepage(void);
+
+
+
 static int  minx,maxx,miny,maxy,k;
-static char bot1f=0,bot2f=0,bot3f=0;
-static char always=0;
-       char regen_bottom = 0;
+static signed char bot1f=0,bot2f=0,bot3f=0;
+static signed char always=0;
+
+signed char regen_bottom = 0;
+
+
 
 /*
     bottomline()
 
     now for the bottom line of the display
  */
-bottomline()
-    {   recalc();   bot1f=1;    }
-bottomhp()
-    {   bot2f=1;    }
-bottomspell()
-    {   bot3f=1;    }
-bottomdo()
-    {
+void bottomline(void)
+{
+
+	recalc();
+	bot1f=1;
+}
+
+    
+void bottomhp(void)
+{
+
+	bot2f=1;
+}
+    
+
+void bottomspell(void)
+{
+
+	bot3f=1;
+}
+
+void bottomdo(void)
+{
     if (bot1f) { bot3f=bot1f=bot2f=0; bot_linex(); return; }
     if (bot2f) { bot2f=0; bot_hpx(); }
     if (bot3f) { bot3f=0; bot_spellx(); }
-    }
+}
 
-bot_linex()
-    {
-    register int i;
+
+void bot_linex(void)
+{
+	int i;
+	
     if ( regen_bottom || (always))
         {
         regen_bottom = FALSE ;
@@ -47,7 +81,7 @@ bot_linex()
         lprintf(" AC: %-3d  WC: %-3d  Level",(long)c[AC],(long)c[WCLASS]);
         if (c[LEVEL]>99) lprintf("%3d",(long)c[LEVEL]);
                     else lprintf(" %-2d",(long)c[LEVEL]);
-        lprintf(" Exp: %-9d %s\n",(long)c[EXPERIENCE],class[c[LEVEL]-1]);
+        lprintf(" Exp: %-9d %s\n",(long)c[EXPERIENCE],classname[c[LEVEL]-1]);
         lprintf("HP: %3d(%3d) STR=%-2d INT=%-2d ",
             (long)c[HP],(long)c[HPMAX],(long)(c[STRENGTH]+c[STREXTRA]),(long)c[INTELLIGENCE]);
         lprintf("WIS=%-2d CON=%-2d DEX=%-2d CHA=%-2d LV:",
@@ -77,7 +111,7 @@ bot_linex()
     if (c[LEVEL] != cbak[LEVEL])
         {
         cursor(59,18);
-        lprcat(class[c[LEVEL]-1]);
+        lprcat(classname[c[LEVEL]-1]);
         }
     if (c[LEVEL]>99)
         {
@@ -106,23 +140,28 @@ bot_linex()
         }
     botsub(GOLD,69,19,"%-6d");
     botside();
-    }
+}
+
+    
 
 /*
     special subroutine to update only the gold number on the bottomlines
     called from ogold()
  */
-bottomgold()
-    {
+void bottomgold(void)
+{
+
     botsub(GOLD,69,19,"%-6d");
-    }
+}
+
+    
 
 /*
     special routine to update hp and level fields on bottom lines
     called in monster.c hitplayer() and spattack()
  */
-static bot_hpx()
-    {
+static void bot_hpx(void)
+{
     if (c[EXPERIENCE] != cbak[EXPERIENCE])
         {
         recalc();
@@ -130,37 +169,59 @@ static bot_hpx()
         }
     else
         botsub(HP,5,19,"%3d");
-    }
+}
 
+    
+    
 /*
     special routine to update number of spells called from regen()
  */
-static bot_spellx()
-    {
+static void bot_spellx(void)
+{
+
     botsub(SPELLS,9,18,"%2d");
-    }
+}
+
+    
 
 /*
     common subroutine for a more economical bottomline()
  */
-static struct bot_side_def
-    {
-    int typ;
-    char *string;
-    }
-    bot_data[] =
-    {
-    STEALTH,"stealth",      UNDEADPRO,"undead pro",     SPIRITPRO,"spirit pro",
-    CHARMCOUNT,"Charm",     TIMESTOP,"Time Stop",       HOLDMONST,"Hold Monst",
-    GIANTSTR,"Giant Str",   FIRERESISTANCE,"Fire Resit", DEXCOUNT,"Dexterity",
-    STRCOUNT,"Strength",    SCAREMONST,"Scare",         HASTESELF,"Haste Self",
-    CANCELLATION,"Cancel",  INVISIBILITY,"Invisible",   ALTPRO,"Protect 3",
-    PROTECTIONTIME,"Protect 2", WTW,"Wall-Walk"
-    };
+struct bot_side_def {
+	
+	int	typ;
+	char *	string;
 
-static botside()
-    {
-    register int i,idx;
+};
+
+
+static struct bot_side_def bot_data[] = {
+	
+	{STEALTH, "stealth"},
+	{UNDEADPRO, "undead pro"},
+	{SPIRITPRO, "spirit pro"},
+	{CHARMCOUNT, "Charm"},
+	{TIMESTOP, "Time Stop"},
+	{HOLDMONST, "Hold Monst"},
+	{GIANTSTR, "Giant Str"},
+	{FIRERESISTANCE, "Fire Resit"},
+	{DEXCOUNT, "Dexterity"},
+	{STRCOUNT, "Strength"},
+	{SCAREMONST, "Scare"},
+	{HASTESELF, "Haste Self"},
+	{CANCELLATION, "Cancel"},
+	{INVISIBILITY, "Invisible"},
+	{ALTPRO, "Protect 3"},
+	{PROTECTIONTIME, "Protect 2"},
+	{WTW, "Wall-Walk"}
+
+};    
+
+
+static void botside(void)
+{
+	int i, idx;
+	
     for (i=0; i<17; i++)
         {
         idx = bot_data[i].typ;
@@ -173,7 +234,9 @@ static botside()
            }
         }
     always=0;
-    }
+}
+
+
 
 /*
  *  subroutine to draw only a section of the screen
@@ -181,10 +244,11 @@ static botside()
  *  drawn, then they will be cleared first.
  */
 static int d_xmin=0,d_xmax=MAXX,d_ymin=0,d_ymax=MAXY;  /* for limited screen drawing */
-draws(xmin,xmax,ymin,ymax)
-    int xmin,xmax,ymin,ymax;
-    {
-    register int i,idx;
+
+void draws(int xmin, int xmax, int ymin, int ymax)
+{
+	int i,idx;
+	
     if (xmin==0 && xmax==MAXX) /* clear section of screen as needed */
         {
         if (ymin==0) cl_up(79,ymax);
@@ -205,30 +269,9 @@ draws(xmin,xmax,ymin,ymax)
             cbak[idx]=c[idx];
             }
         }
-    }
+}
 
-#ifdef DECRainbow
- static int DECgraphics;     /* The graphics mode toggle */
 
-# define DECgraphicsON() if (!DECgraphics) lprc('\16'), DECgraphics = 1
-# define DECgraphicsOFF() if (DECgraphics) lprc('\17'), DECgraphics = 0
-
-/* For debugging on a non-DEC
-# define DECgraphicsON() if (!DECgraphics) lprcat("\33[4m"), DECgraphics = 1
-# define DECgraphicsOFF() if (DECgraphics) lprcat("\33[0m"), DECgraphics = 0
-*/
-
-# define DEClprc(ch)    if (ch & 0x80) {\
-                            DECgraphicsON();\
-                            lprc(ch ^ 0x80);\
-                        } else {\
-                            DECgraphicsOFF();\
-                            lprc(ch);\
-                        }
-#define nlprc(_ch) DEClprc(_ch)
-# else
-#define nlprc(_ch) lprc(_ch)
-#endif DECRainbow
 
 /*
     drawscreen()
@@ -236,25 +279,33 @@ draws(xmin,xmax,ymin,ymax)
     subroutine to redraw the whole screen as the player knows it
  */
 static char d_flag;
-drawscreen()
-    {
-    register int i,j,k,ileft,iright;
 
-    if (d_xmin==0 && d_xmax==MAXX && d_ymin==0 && d_ymax==MAXY)
-        {
-        d_flag=1;  clear(); /* clear the screen */
-        }
-    else
-        {
-        d_flag=0;  cursor(1,1);
-        }
-    if (d_xmin<0)
-        d_xmin=0; /* d_xmin=-1 means display all without bottomline */
+void drawscreen(void)
+{
+	int i, j, k, ileft, iright;
 
-    /* display lines of the screen
-    */
-    for ( j = d_ymin ; j < d_ymax ; j++ )
-        {
+	if (d_xmin == 0 && d_xmax == MAXX && 
+		d_ymin == 0 && d_ymax == MAXY) {
+		
+		/* clear the screen */
+		d_flag = 1;
+		clear();
+			
+        } else {
+		
+		d_flag = 0;
+		cursor(1, 1);
+        }
+	
+	if (d_xmin < 0) {
+		
+		/* d_xmin=-1 means display all without bottomline */
+		d_xmin = 0; 
+	}
+
+	/* display lines of the screen */
+	for (j = d_ymin; j < d_ymax; j++ ) {
+
         /* When we show a spot of the dungeon, we have 4 cases:
             squares we know nothing about
                 - know == 0
@@ -269,122 +320,124 @@ drawscreen()
            to minimize printing of spaces, scan from left of line until
            we reach a location that the user knows.
         */
-        ileft = d_xmin - 1;
-        while ( ++ileft < d_xmax )
-            if (know[ileft][j])     /* instead of know[i][j] != 0 */
-                break;              /* exitloop while */
 
-        /* if not a blank line ... */
-        if ( ileft < d_xmax )
-            {
-            /* scan from right of line until we reach a location that the
-               user knows.
-            */
-            iright = d_xmax ;
-            while ( --iright > ileft )
-                if (know[iright][j])
-                    break ;    /* exitloop while */
+		ileft = d_xmin - 1;
 
-            /* now print the line, after positioning the cursor.
-               print the line with bold objects in a different
-               loop for effeciency
-            */
-            cursor( ileft+1, j+1 );
-            if (boldobjects)
-                for ( i=ileft ; i <= iright ; i++ )
+		while (++ileft < d_xmax) {
+			
+			if (know[ileft][j]) {
+	
+				break;
+			}
+		}
 
-                    /* we still need to check for the location being known,
-                       for we might have an unknown spot in the middle of
-                       an otherwise known line.
-                    */
-                    if ( know[i][j] == 0 )
-                        nlprc( ' ' );
-                    else if ( know[i][j] & HAVESEEN )
-                        {
-                        /* if monster there and the user still knows the place,
-                           then show the monster.  Otherwise, show what was
-                           there before.
-                        */
-                        if (( i == playerx ) &&
-                            ( j == playery ))
-                            nlprc('@');
-                        else if (( k = mitem[i][j] ) &&
-                            ( know[i][j] & KNOWHERE ))
-                            nlprc( monstnamelist[k] );
-                        else if (((k=item[i][j]) == OWALL ) ||
-                                 (objnamelist[k] == floorc))
-                            nlprc( objnamelist[k] );
-                        else
-                            {
-                            setbold();
-                            nlprc( objnamelist[k] );
-                            resetbold();
-                            }
-                        }
-                    else
-                        /* error condition.  recover by resetting location
-                           to an 'unknown' state.
-                        */
-                        {
-                        nlprc( ' ' );
-                        mitem[i][j] = item[i][j] = 0 ;
-                        }
-            else /* non-bold objects here */
-                for ( i=ileft ; i <= iright ; i++ )
+		/* if blank line ... */
+		if (ileft >= d_xmax) {
+		
+			continue;
+		}
+		
+		
+		
+		/* scan from right of line until we reach a location that the
+			user knows.
+		*/
+		iright = d_xmax ;
+		
+		while (--iright > ileft) {
+			
+			if (know[iright][j]) {
+
+				break;
+			}
+		}
+
+		/* 
+		 * now print the line, after positioning the cursor.
+		 * print the line with bold objects in a different
+		 * loop for effeciency
+		 */
+		cursor(ileft + 1, j + 1);
+	
+                for (i = ileft ; i <= iright ; i++) {
 
                     /* we still need to check for the location being known,
                        for we might have an unknown spot in the middle of
                        an otherwise known line.
                     */
-                    if ( know[i][j] == 0 )
-                        nlprc( ' ' );
-                    else if ( know[i][j] & HAVESEEN )
-                        {
-                        /* if monster there and the user still knows the place,
-                           then show the monster.  Otherwise, show what was
-                           there before.
-                        */
-                        if (( i == playerx ) &&
-                            ( j == playery ))
-                            nlprc('@');
-                        else if (( k = mitem[i][j] ) &&
-                            ( know[i][j] & KNOWHERE ))
-                            nlprc( monstnamelist[k] );
-                        else
-                            nlprc( objnamelist[item[i][j]] );
+			if (know[i][j] == 0) {
+			
+			    nlprc( ' ' );
+			    
+			} else if (know[i][j] & HAVESEEN) {
+			    
+				/* 
+				 * if monster there and the user still knows the place,
+				 * then show the monster.  Otherwise, show what was
+				 * there before.
+				 */
+				
+				if (i == playerx && j == playery) {
+					
+					nlprc('@');
+					
+					continue;
+				}
+				
+				k = mitem[i][j];
+	
+				if (k && know[i][j] & KNOWHERE) {
+					
+					nlprc(monstnamelist[k]);
+		
+				} else {
+					
+					nlprc(objnamelist[item[i][j]]);
+				}
+			
+			} else {
+				
+				/* 
+				 * error condition.  recover by resetting location
+				 * to an 'unknown' state.
+				 */
+		
+				nlprc( ' ' );
+	
+				mitem[i][j] = item[i][j] = 0 ;
                         }
-                    else
-                        /* error condition.  recover by resetting location
-                           to an 'unknown' state.
-                        */
-                        {
-                        nlprc( ' ' );
-                        mitem[i][j] = item[i][j] = 0 ;
-                        }
-            }   /* if (ileft < d_xmax ) */
-        }       /* for (j) */
+		}
+        }
 
-#ifdef DECRainbow
-    if (DECRainbow)
-        DECgraphicsOFF();
-#endif DECRainbow
-    resetbold();
-    if (d_flag)  { always=1; botside(); always=1; bot_linex(); }
-/*
-    oldx=99;
-*/
-    d_xmin = d_ymin = 0; d_xmax = MAXX; d_ymax = MAXY; /* for limited screen drawing */
-    }
-
+	resetbold();
+	
+	if (d_flag) {
+		
+		always=1;
+		botside();
+		always=1;
+		bot_linex();
+	}
+
+	/* oldx=99; */
+	/* for limited screen drawing */
+	d_xmin = d_ymin = 0;
+	d_xmax = MAXX;
+	d_ymax = MAXY; 
+}
+
+    
+    
+
 /*
     showcell(x,y)
 
     subroutine to display a cell location on the screen
  */
-showcell(x,y)
-    int x,y;
-    {
-    register int i,j,k,m;
+void showcell(int x, int y)
+{
+	int i,j,k,m;
+
     if (c[BLINDCOUNT])  return; /* see nothing if blind     */
     if (c[AWARENESS]) { minx = x-3; maxx = x+3; miny = y-3; maxy = y+3; }
             else      { minx = x-1; maxx = x+1; miny = y-1; maxy = y+1; }
@@ -407,75 +460,72 @@ showcell(x,y)
                     {
                     case OWALL:  case 0: case OIVTELETRAP:  case OTRAPARROWIV:
                     case OIVDARTRAP: case OIVTRAPDOOR:
-#ifdef DECRainbow
-                        if (DECRainbow) {
-                            DEClprc(objnamelist[k]);
-                        } else
-#endif DECRainbow
                         lprc(objnamelist[k]);   
                         break;
                     default:
-                        if (boldobjects)
-                            setbold();
                         lprc(objnamelist[k]);
-                        if (boldobjects)
-                            resetbold();
                         break;
                     };
                 know[i][j] = KNOWALL;
                 }
             m = maxx;
-#ifdef DECRainbow
-            if (DECRainbow)
-                DECgraphicsOFF();
-#endif DECRainbow
+
             }
     }
+
+    
 
 /*
     this routine shows only the spot that is given it.  the spaces around
     these coordinated are not shown
     used in godirect() in monster.c for missile weapons display
  */
-show1cell(x,y)
-    int x,y;
-    {
-    cursor(x+1,y+1);
+void show1cell(int x, int y)
+{
 
-    /* see nothing if blind, but clear previous player position
-    */
-    if (c[BLINDCOUNT])
-        {
-        if ((x == oldx) && (y == oldy))
-            lprc(' ');
-        return;
-        }
+	cursor(x + 1, y + 1);
 
-    if ((k=mitem[x][y]))
-        lprc(monstnamelist[k]);
-    else switch(k=item[x][y])
-        {
-        case OWALL:  case 0:  case OIVTELETRAP:  case OTRAPARROWIV:
-        case OIVDARTRAP: case OIVTRAPDOOR:
-# ifdef DECRainbow
-            if (DECRainbow) {
-                DEClprc(objnamelist[k]);
-                DECgraphicsOFF();
-            } else
-# endif
-                lprc(objnamelist[k]);
-                break;
+	/* see nothing if blind, but clear previous player position */
+	if (c[BLINDCOUNT]) {
+		
+		if (x == oldx && y == oldy)
+			lprc(' ');
 
-        default:
-            if (boldobjects)
-                setbold();
-            lprc(objnamelist[k]);
-            if (boldobjects)
-                resetbold();
-            break;
-        };
-    know[x][y] = KNOWALL;   /* we end up knowing about it */
-    }
+		return;
+	}
+
+	k = mitem[x][y];
+
+	if (k) {
+		
+		lprc(monstnamelist[k]);
+		
+	} else {
+		
+		k = item[x][y];
+
+		switch(k) {
+
+		case OWALL:
+		case 0:
+		case OIVTELETRAP:
+		case OTRAPARROWIV:
+		case OIVDARTRAP:
+		case OIVTRAPDOOR:
+			lprc(objnamelist[k]);
+			break;
+		default:
+			lprc(objnamelist[k]);
+		}		
+	}
+	
+
+	/* we end up knowing about it */
+	know[x][y] = KNOWALL;  
+}
+
+    
+
 
 /*
     showplayer()
@@ -483,14 +533,19 @@ show1cell(x,y)
     subroutine to show where the player is on the screen
     cursor values start from 1 up
  */
-showplayer()
-    {
+void showplayer(void)
+{
     show1cell( oldx, oldy );
     cursor(playerx+1,playery+1);
     lprc('@');
     cursor(playerx+1,playery+1);
     oldx=playerx;  oldy=playery;
-    }
+}
+
+
+
+
+
 
 /*
     moveplayer(dir)
@@ -503,24 +558,24 @@ showplayer()
  */
 short diroffx[] = { 0,  0, 1,  0, -1,  1, -1, 1, -1 };
 short diroffy[] = { 0,  1, 0, -1,  0, -1, -1, 1,  1 };
-moveplayer(dir)
-    int dir;            /*  from = present room #  direction = [1-north]
+
+int moveplayer(int dir)
+/*  from = present room #  direction = [1-north]
                             [2-east] [3-south] [4-west] [5-northeast]
                             [6-northwest] [7-southeast] [8-southwest]
                         if direction=0, don't move--just show where he is */
-    {
-    register int k,m,i,j;
-    extern char prayed ;
+{
+    int k,m,i,j;
 
     if (c[CONFUSE]) if (c[LEVEL]<rnd(30)) dir=rund(9); /*if confused any dir*/
     k = playerx + diroffx[dir];     m = playery + diroffy[dir];
     if (k<0 || k>=MAXX || m<0 || m>=MAXY) { nomove=1; return(yrepcount = 0); }
     i = item[k][m];         j = mitem[k][m];
 
-    /* prevent the player from moving onto a wall, or a closed door when
-       in command mode, unless the character has Walk-Through-Walls.
+    /* prevent the player from moving onto a wall, or a closed door, 
+    unless the character has Walk-Through-Walls.
     */
-    if ((i==OCLOSEDDOOR && !prompt_mode) || (i==OWALL) && c[WTW]==0)
+    if (i==OCLOSEDDOOR || (i==OWALL) && c[WTW]==0)
         { 
         nomove=1;  
         return(yrepcount = 0); 
@@ -544,12 +599,10 @@ moveplayer(dir)
     if (j>0)     
         { hitmonster(k,m); return(yrepcount = 0); } 
 
-    /* check for the player ignoring an altar when in command mode.
+    /* check for the player ignoring an altar
     */
-    if ((!prompt_mode) &&
-        (item[playerx][playery] == OALTAR) &&
-        (!prayed))
-        {
+    if (item[playerx][playery] == OALTAR && !prayed)
+{
     cursors();
     lprcat("\nYou have ignored the altar!");
     act_ignore_altar();
@@ -562,21 +615,23 @@ moveplayer(dir)
         return(yrepcount = 0);  
     else 
         return(1);
-    }
-
+}
+
+    
+    
+
 /*
  *  function to show what magic items have been discovered thus far
  *  enter with -1 for just spells, anything else will give scrolls & potions
  */
-static int lincount,count;
-seemagic(arg)
-    int arg;
-    {
-    register int i,j,k,number;
-    char sort[SPNUM+1]; /* OK as long as SPNUM > MAXSCROLL,MAXPOTION */
+static int lincount, count;
+
+void seemagic(int arg)
+{
+    int i,j,k,number;
+    signed char sort[SPNUM+1]; /* OK as long as SPNUM > MAXSCROLL,MAXPOTION */
 
     count = lincount = 0;
-    nosignal=1;
 
     /* count and sort the known spell codes
     */
@@ -617,7 +672,6 @@ seemagic(arg)
         {
         seepage();
         more(FALSE);
-        nosignal=0;
         draws(0,MAXX,0, (( number + 2 ) / 3 + 4 ));
         return;
         }
@@ -688,19 +742,20 @@ seemagic(arg)
 
     if (lincount!=0)
         more(FALSE);
-    nosignal=0;
     setscroll();
     drawscreen();
-    }
+}
+
+
 
 /*
  *  subroutine to paginate the seemagic function
  */
-static seepage()
-    {
+static void seepage(void)
+{
     if (++count==3)
         {
         lincount++; count=0;    lprc('\n');
         if (lincount>17) {  lincount=0;  more(FALSE);  clear();  }
         }
-    }
+}

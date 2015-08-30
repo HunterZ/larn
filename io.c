@@ -14,14 +14,14 @@
  *  lwrite(buf,len)         write a buffer to the output buffer
  *  lprcat(str)         sent string to output buffer
  *
- *  FILE OUTPUT MACROS (in header.h)
+ *  FILE OUTPUT MACROS
  *
  *  lprc(character)         put the character into the output buffer
  *
  *  FILE INPUT ROUTINES
  *
  *  long lgetc()            read one character from input buffer
- *  long lrint()            read one integer from input buffer
+ *  long larint()            read one integer from input buffer
  *  lrfill(address,number)      put input bytes into a buffer
  *  char *lgetw()           get a whitespace ended word from input
  *  char *lgetl()           get a \n or EOF ended line from input
@@ -42,299 +42,165 @@
  *  cl_line(x,y)            Clear line at [1,y] and leave cursor at [x,y]
  *  cl_up(x,y)          Clear screen from [x,1] to current line.
  *  cl_dn(x,y)      Clear screen from [1,y] to end of display. 
- *  standout(str)       Print the string in standout mode.
+ *  lstandout(str)       Print the string in standout mode.
  *  set_score_output()  Called when output should be literally printed.
  ** ttputch(ch)     Print one character in decoded output buffer.
  ** flush_buf()     Flush buffer with decoded output.
- ** init_term()     Terminal initialization -- setup termcap info
+ ** init_term()     Terminal initialization
  ** char *tmcapcnv(sd,ss)   Routine to convert VT100 \33's to termcap format
- *  beep()          Routine to emit a beep if enabled (see no-beep in .larnopts)
  *
  * Note: ** entries are available only in termcap mode.
  */
-
-#include "header.h"
-#include "larndefs.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <time.h>
 #include <ctype.h>
 
-#ifdef SYSV /* system III or system V */
-# ifndef MSDOS
-#   include <termio.h>
-# endif
-#define sgttyb termio
-#define stty(_a,_b) ioctl(_a,TCSETA,_b)
-#define gtty(_a,_b) ioctl(_a,TCGETA,_b)
-#ifndef MSDOS
-static int rawflg = 0;
-static char saveeof,saveeol;
-#define doraw(_a) if(!rawflg){++rawflg;saveeof=_a.c_cc[VMIN];saveeol=_a.c_cc[VTIME];}\
-    _a.c_cc[VMIN]=1;_a.c_cc[VTIME]=1;_a.c_lflag &= ~(ICANON|ECHO|ECHOE|ECHOK|ECHONL)
-#define unraw(_a) _a.c_cc[VMIN]=saveeof;_a.c_cc[VTIME]=saveeol;_a.c_lflag |= ICANON|ECHO|ECHOE|ECHOK|ECHONL
-#endif
-#else not SYSV
-#ifdef VMS
-#include    <descrip.h>
-#include    <ssdef.h>
-#include    <stsdef.h>
-#include    <iodef.h>
-#include    <ttdef.h>
-#include    <tt2def.h>
-#else VMS
-#ifndef BSD
-#define CBREAK RAW      /* V7 has no CBREAK */
-#endif
-#define doraw(_a) (_a.sg_flags |= CBREAK,_a.sg_flags &= ~ECHO)
-#define unraw(_a) (_a.sg_flags &= ~CBREAK,_a.sg_flags |= ECHO)
-#include <sgtty.h>
-#endif not SYSV
-#endif VMS
+#include <setjmp.h>
+#include <fcntl.h>     /* For O_BINARY */
+#include <conio.h>
 
-#ifndef NOVARARGS   /* if we have varargs */
-#include <varargs.h>
-#else NOVARARGS /* if we don't have varargs */
-typedef char *va_list;
-#define va_dcl int va_alist;
-#define va_start(plist) plist = (char *) &va_alist
-#define va_end(plist)
-#define va_arg(plist,mode) ((mode *)(plist += sizeof(mode)))[-1]
-#endif NOVARARGS
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
+
+#include "ansiterm.h"
+
 
 #define LINBUFSIZE 128      /* size of the lgetw() and lgetl() buffer       */
 int lfd;            /*  output file numbers     */
 int fd;             /*  input file numbers      */
-# ifndef MSDOS
-# ifndef VMS
-static struct sgttyb ttx;   /* storage for the tty modes                    */
-# else
-int iochan;         /* storage for the tty channel  */
-int ttx[3];         /* storage for the tty modes    */
-int cbflag;         /* cbreak flag.  Set when SCBRd */
-# endif
-# endif
+
+
 static int ipoint=MAXIBUF,iepoint=MAXIBUF;  /*  input buffering pointers    */
 static char lgetwbuf[LINBUFSIZE];   /* get line (word) buffer               */
 
-#ifdef MSDOS
-# include <setjmp.h>
- extern jmp_buf save_jbuf;
- extern int save_mode;
-#endif
 
-# ifdef MSDOS
-# include <fcntl.h>     /* For O_BINARY */
-static int (*getchfn)();
-int getche(), kgetch();
-# endif
+static int	(*getchfn)();
+
+static void	ttputch(int);
+static void	tputs(const char *);
+
+static void	flush_buf(void);
+
+static void	warn(char *);
+
+
 
 /*
- *  setupvt100()        Subroutine to set up terminal in correct mode for game
+ *  Subroutine to set up terminal in correct mode for game
  *
  *  Attributes off, clear screen, set scrolling region, set tty mode 
  */
-setupvt100()
-    {
-#ifdef VMS
-    struct  dsc$descriptor  idsc;
-    register int        status;
+void setupvt100(void)
+{
 
-    idsc.dsc$a_pointer = "SYS$COMMAND";
-    idsc.dsc$w_length  = strlen(idsc.dsc$a_pointer);
-    idsc.dsc$b_dtype   = DSC$K_DTYPE_T;
-    idsc.dsc$b_class   = DSC$K_CLASS_S;
-    status = SYS$ASSIGN(&idsc, &iochan, 0, 0);
-    if (status&STS$M_SUCCESS == 0)
-        exit(status);
-#endif
-    lprc(T_INIT);
-    clear();  setscroll();  scbr(); /* system("stty cbreak -echo"); */
-# ifdef MSDOS
-    setraw();
-    setcursor();
+	clear();
+	
+	setscroll();
 
-    /* Select normal ASCII and line drawing character sets.
-     */
-    if (DECRainbow)
-        lprcat("\033(B\033)0");
-# endif
-    }
+	scbr(); /* system("stty cbreak -echo"); */
+}
+
+
 
 /*
- *  clearvt100()        Subroutine to clean up terminal when the game is over
+ *  Subroutine to clean up terminal when the game is over
  *
  *  Attributes off, clear screen, unset scrolling region, restore tty mode 
  */
-clearvt100()
-    {
-    lprc(T_END);
-    resetscroll();  clear();  sncbr(); /* system("stty -cbreak echo"); */
-# ifdef MSDOS
-    unsetraw();
-    resetcursor();
-# endif
-#ifdef VMS
-    SYS$DASSGN(iochan);
-#endif
-    }
-
-/*
- *  ttgetch()       Routine to read in one character from the terminal
- */
-
-#ifdef VMS
-
-ttgetch()
+void clearvt100(void)
 {
-#define NIBUF   80      /* characters in the buffer.    */
-    static char ibuf[NIBUF];
-    static int  ibufi = 0;
-    static int  nibuf = 0;
-    int status;
-    int iosb[2];
-    int term[2];
 
-    lflush();       /* be sure output buffer is flushed */
-    term[0] = 0;
-    term[1] = 0;
-    while (ibufi >= nibuf) {
-        if (cbflag) {
-        /* cbroken */
-            ibufi   = 0;
-/*
-            status = SYS$QIOW(0, iochan, IO$_READLBLK|IO$M_TIMED,
-                 iosb, 0, 0, ibuf, NIBUF, 0, term, 0, 0);
-*/
-            status = SYS$QIOW(0, iochan, IO$_READLBLK,
-                 iosb, 0, 0, ibuf, 1, 0, term, 0, 0);
-        if (status != SS$_NORMAL)
-            continue;
-        status = iosb[0] & 0xFFFF;
-        if (status!=SS$_NORMAL && status!=SS$_TIMEOUT)
-            continue;
-        nibuf = (iosb[0]>>16) + (iosb[1]>>16);
-        if (nibuf == 0) 
-        {
-        status = SYS$QIOW(0, iochan, IO$_READLBLK,
-            iosb, 0, 0, ibuf, 1, 0, term, 0, 0);
-        if (status != SS$_NORMAL)
-            continue;
-        if ((iosb[0]&0xFFFF) != SS$_NORMAL)
-            continue;
-        nibuf = (iosb[0]>>16) + (iosb[1]>>16);
-        }
-        } else {
-        /* not cbroken */
-        try_again:
-            ibufi    = 0;
-            status   = SYS$QIOW(0, iochan, IO$_READLBLK, iosb,
-                    0, 0, ibuf, NIBUF, 0, 0, 0, 0);
-            if (status != SS$_NORMAL)
-                goto try_again;
-            if ((iosb[0]&0xFFFF) != SS$_NORMAL)
-                goto try_again;
-            nibuf = (iosb[0]>>16) + (iosb[1]>>16);
-        }
-    }
-    if ((ibuf[ibufi]&0xFF) == '\r')     /* carriage return */
-        ibuf[ibufi] = '\n';     /* turns to newline */
-    return (ibuf[ibufi++]&0xFF);
+	ansiterm_clean_up();
+
+	resetscroll();
+	
+	clear();
+
+	sncbr(); /* system("stty -cbreak echo"); */
 }
-#else VMS
 
-ttgetch()
-    {
-    char byt;
+
+
+/*
+ * ttgetch()       Routine to read in one character from the terminal
+ */
+char ttgetch(void)
+{
+	char byt;
+	    
 #ifdef EXTRA
-    c[BYTESIN]++;
+	c[BYTESIN]++;
 #endif EXTRA
-    lflush();       /* be sure output buffer is flushed */
-# ifdef MSDOS
-    if ((byt = (*getchfn)()) == '\r')
-        byt = '\n';
-    return byt;
-# else MSDOS
-    read(0,&byt,1);     /* get byte from terminal */
-    return(byt);
-# endif MSDOS
-    }
-# endif VMS
+	    
+	lflush(); /* be sure output buffer is flushed */
 
-/*
- *  scbr()      Function to set cbreak -echo for the terminal
- *
- *  like: system("stty cbreak -echo")
- */
-scbr()
-    {
-# ifdef MSDOS
-    /* Set up to use the direct console input call which may
-     * read from the keypad;
-     */
-    getchfn = kgetch;
-# else
-# ifdef VMS
-    int status;
-    int iosb[2];
+	byt = (*getchfn)();
 
-    cbflag = 1;
-    status = SYS$QIOW(0, iochan, IO$_SENSEMODE, iosb, 0, 0,
-              ttx, sizeof(ttx), 0, 0, 0, 0);
-    if (status&STS$M_SUCCESS == 0)
-        exit(status);
-    ttx[1] |= TT$M_NOECHO;
-    ttx[2] |= TT2$M_PASTHRU;
-    status = SYS$QIOW(0, iochan, IO$_SETMODE, iosb, 0, 0,
-              ttx, sizeof(ttx), 0, 0, 0, 0);
-    if (status&STS$M_SUCCESS == 0)
-        exit(status);
-# else
-    gtty(0,&ttx);       doraw(ttx);     stty(0,&ttx);
-# endif
-# endif
-    }
+	if (byt == '\r') {
 
-/*
- *  sncbr()     Function to set -cbreak echo for the terminal
- *
- *  like: system("stty -cbreak echo")
- */
-sncbr()
-    {
-# ifdef MSDOS
-    /* Set up to use the direct console input call with echo, getche()
-     */
-    getchfn = getche;
-# else
-# ifdef VMS
-    int status;
-    int iosb[2];
-    cbflag = 0;
-    status = SYS$QIOW(0, iochan, IO$_SENSEMODE, iosb, 0, 0,
-              ttx, sizeof(ttx), 0, 0, 0, 0);
-    if (status&STS$M_SUCCESS == 0)
-        exit(status);
-    ttx[1] &= ~TT$M_NOECHO;
-    ttx[2] &= ~TT2$M_PASTHRU;
-    status = SYS$QIOW(0, iochan, IO$_SETMODE, iosb, 0, 0,
-              ttx, sizeof(ttx), 0, 0, 0, 0);
-    if (status&STS$M_SUCCESS == 0)
-        exit(status);
-# else
-    gtty(0,&ttx);       unraw(ttx);     stty(0,&ttx);
-# endif
-# endif
-    }
-
-/*
- *  newgame()       Subroutine to save the initial time and seed rnd()
- */
-newgame()
-{
-    register long *p,*pe;
-    for (p=c,pe=c+100; p<pe; *p++ =0);
-    time(&initialtime);
-    srand(initialtime);
-    lcreat((char*)0);   /* open buffering for output to terminal */
+		byt = '\n';
+	}
+    
+	return byt;
 }
+    
+    
+    
+
+/*
+ * scbr()      Function to set cbreak -echo for the terminal
+ *
+ * like: system("stty cbreak -echo")
+ */
+void scbr(void)
+{
+
+	/* 
+	 * Set up to use the direct console input call which may
+	 * read from the keypad;
+	 */
+	getchfn = ansiterm_getch;
+}
+
+
+
+/*
+ * sncbr()     Function to set -cbreak echo for the terminal
+ *
+ * like: system("stty -cbreak echo")
+ */
+void sncbr(void)
+{
+
+	/* 
+	 * Set up to use the direct console input call with echo, getche()
+	 */
+	getchfn = ansiterm_getche;
+}
+
+
+
+/*
+ * newgame()       Subroutine to save the initial time and seed rnd()
+ */
+void newgame(void)
+{
+	long *p, *pe;
+	
+	for (p = c, pe = c + 100; p < pe; *p++ = 0)
+		;
+	
+	time(&initialtime);
+	
+	srand(initialtime);
+	
+	lcreat((char*)0);   /* open buffering for output to terminal */
+}
+
+
 
 /*
  *  lprintf(format,args . . .)      printf to the output buffer
@@ -349,93 +215,25 @@ newgame()
  *      are done beforehand if needed.
  *  Returns nothing of value.
  */
-#ifdef lint
-/*VARARGS*/
-lprintf(str)
-    char *str;
-    {
-    char *str2;
-    str2 = str;
-    str = str2; /* to make lint happy */
-    }
-/*VARARGS*/
-sprintf(str)
-    char *str;
-    {
-    char *str2;
-    str2 = str;
-    str = str2; /* to make lint happy */
-    }
-#else lint
-/*VARARGS*/
-lprintf(va_alist)
-va_dcl
-    {
-    va_list ap; /* pointer for variable argument list */
-    register char *fmt;
-    register char *outb,*tmpb;
-    register long wide,left,cont,n;     /* data for lprintf */
-    char db[12];            /* %d buffer in lprintf */
+void lprintf(const char *fmt, ...)
+{
+	va_list vl;
+	char buffer[STRING_BUFFER_SIZE];
+	const char *p;
 
-    va_start(ap);   /* initialize the var args pointer */
-    fmt = va_arg(ap, char *);   /* pointer to format string */
-    if (lpnt >= lpend) lflush(); 
-    outb = lpnt;
-    for ( ; ; )
-        {
-        while (*fmt != '%')
-            if (*fmt) *outb++ = *fmt++;  else { lpnt=outb;  return; }
-        wide = 0;   left = 1;   cont=1;
-        while (cont)
-          switch(*(++fmt))
-            {
-            case 'd':   n = va_arg(ap, long);
-                        if (n<0) { n = -n;  *outb++ = '-';  if (wide) --wide; }
-                        tmpb = db+11;   *tmpb = (char)(n % 10 + '0');
-                        while (n>9)  *(--tmpb) = (char)((n /= 10) % 10 + '0');
-                        if (wide==0)  while (tmpb < db+12) *outb++ = *tmpb++;
-                        else
-                            {
-                            wide -= db-tmpb+12;
-                            if (left)  while (wide-- > 0) *outb++ = ' ';
-                            while (tmpb < db+12) *outb++ = *tmpb++;
-                            if (left==0)  while (wide-- > 0) *outb++ = ' ';
-                            }
-                        cont=0; break;
+	va_start(vl, fmt);
+	vsprintf(buffer, fmt, vl);
+	va_end(vl);
 
-            case 's':   tmpb = va_arg(ap, char *);
-                        if (wide==0)  { while (*outb++ = *tmpb++);  --outb; } 
-                        else
-                            {
-                            n = wide - strlen(tmpb);
-                            if (left)  while (n-- > 0) *outb++ = ' ';
-                            while (*outb++ = *tmpb++);  --outb;
-                            if (left==0)  while (n-- > 0) *outb++ = ' ';
-                            }
-                        cont=0; break;
+	p = buffer;
 
-            case 'c':   *outb++ = va_arg(ap, int);  cont=0;  break;
+	while (*p != '\0') {
+		lprc(*p);
+		++p;
+	}
+}
 
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':   wide = 10*wide + *fmt - '0';    break;
 
-            case '-':   left = 0;   break;
-
-            default:    *outb++ = *fmt;  cont=0;    break;
-            };
-        fmt++;
-        }
-    va_end(ap);
-    }
-#endif lint
 
 /*
  *  lprint(long-integer)                send binary integer to output buffer
@@ -453,13 +251,39 @@ va_dcl
  *  No checking for output buffer overflow is done, but flushes if needed!
  *  Returns nothing of value.
  */
-lprint(x)
-    register long x;
-    {
-    if (lpnt >= lpend) lflush();
-    *lpnt++ =  255 & x;         *lpnt++ =  255 & (x>>8);
-    *lpnt++ =  255 & (x>>16);   *lpnt++ =  255 & (x>>24);
-    }
+void lprint(long x)
+{
+
+	if (lpnt >= lpend) {
+		
+		lflush();
+	}
+    
+	*lpnt++ =  255 & x;	*lpnt++ =  255 & (x >> 8);
+	*lpnt++ =  255 & (x >> 16);   *lpnt++ = 255 & (x >> 24);
+}
+
+
+
+/* 
+ * output one byte to the output buffer 
+ */
+void lprc(char ch)
+{
+
+	*lpnt++ = ch;
+
+	if (lpnt >= lpend) {
+
+		lflush();
+	}
+}
+
+
+
+
+
+
 
 /*
  *  lwrite(buf,len)         write a buffer to the output buffer
@@ -469,25 +293,19 @@ lprint(x)
  *  Enter with the address and number of bytes to write out
  *  Returns nothing of value
  */
-lwrite(buf,len)
-    register char *buf;
-    int len;
-    {
-    register char *str;
-    register int num2;
+void lwrite(char *buf, int len)
+{
+	char *str;
+	int num2;
+
     if (len > 399)  /* don't copy data if can just write it */
         {
 #ifdef EXTRA
         c[BYTESOUT] += len;
 #endif
 
-#ifndef VT100
         for (str=buf;  len>0; --len)
             lprc(*str++);
-#else VT100
-        lflush();
-        write(lfd,buf,len);
-#endif VT100
         } 
     else while (len)
         {
@@ -498,20 +316,21 @@ lwrite(buf,len)
         while (num2--)  *str++ = *buf++;    /* copy in the bytes */
         lpnt = str;
         }
-    }
+}
+
 
 /*
  *  long lgetc()        Read one character from input buffer
  *
  *  Returns 0 if EOF, otherwise the character
  */
-long lgetc()
-    {
-    register int i;
+long lgetc(void)
+{
+	int i;
 
     if (ipoint != iepoint)  return(inbuffer[ipoint++]);
     if (iepoint!=MAXIBUF)   return(0);
-    if ((i=vread(fd,inbuffer,MAXIBUF))<=0) {
+    if ((i=read(fd,inbuffer,MAXIBUF))<=0) {
         if (i!=0)
             write(1,"error reading from input file\n",30);
     iepoint = ipoint = 0;
@@ -520,8 +339,9 @@ long lgetc()
     ipoint=1;  iepoint=i;  return(*inbuffer);
 }
 
+
 /*
- *  long lrint()            Read one integer from input buffer
+ *  long larint()            Read one integer from input buffer
  *
  *      +---------+---------+---------+---------+
  *      |   high  |         |         |   low   |
@@ -533,13 +353,15 @@ long lgetc()
  *  The save order is low order first, to high order (4 bytes total)
  *  Returns the int read
  */
-long lrint()
-    {
-    register unsigned long i;
+long larint(void)
+{
+	unsigned long i;
     i  = 255 & lgetc();             i |= (255 & lgetc()) << 8;
     i |= (255 & lgetc()) << 16;     i |= (255 & lgetc()) << 24;
     return(i);
-    }
+}
+
+
 
 /*
  *  lrfill(address,number)          put input bytes into a buffer
@@ -549,19 +371,18 @@ long lrint()
  *  Reads "number" bytes into the buffer pointed to by "address".
  *  Returns nothing of value
  */
-lrfill(adr,num)
-    register char *adr;
-    int num;
-    {
-    register char *pnt;
-    register int num2;
+void lrfill(char * adr, int num)
+{
+	char *pnt;
+	int num2;
+
     while (num)
         {
         if (iepoint == ipoint)
             {
             if (num>5) /* fast way */
                 {
-                if (vread(fd,adr,num) != num)
+                if (read(fd,adr,num) != num)
                     write(2,"error reading from input file\n",30);
                 num=0;
                 }
@@ -575,36 +396,45 @@ lrfill(adr,num)
             while (num2--)  *adr++ = *pnt++;
             }
         }
-    }
+}
+
+
 
 /*
  *  char *lgetw()           Get a whitespace ended word from input
  *
  *  Returns pointer to a buffer that contains word.  If EOF, returns a NULL
  */
-char *lgetw()
-    {
-    register char *lgp,cc;
-    register int n=LINBUFSIZE,quote=0;
+char * lgetw(void)
+{
+	char *lgp, cc;
+	int n = LINBUFSIZE, quote = 0;
+
     lgp = lgetwbuf;
-    do cc=lgetc();  while ((cc <= 32) && (cc > NULL));  /* eat whitespace */
+    do cc=lgetc();  while ((cc <= 32) && (cc > '\0'));  /* eat whitespace */
     for ( ; ; --n,cc=lgetc())
         {
-        if ((cc==NULL) && (lgp==lgetwbuf))  return(NULL);   /* EOF */
-        if ((n<=1) || ((cc<=32) && (quote==0))) { *lgp=NULL; return(lgetwbuf); }
+        if ((cc== '\0') && (lgp==lgetwbuf))  return(NULL);   /* EOF */
+        if ((n<=1) || ((cc<=32) && (quote==0))) { 
+		*lgp= '\0';
+		return lgetwbuf; 
+	}
         if (cc != '"') *lgp++ = cc;   else quote ^= 1;
         }
-    }
+}
+
+
 
 /*
  *  char *lgetl()       Function to read in a line ended by newline or EOF
  *
  *  Returns pointer to a buffer that contains the line.  If EOF, returns NULL
  */
-char *lgetl()
+char * lgetl(void)
 {
-    register int i=LINBUFSIZE,ch;
-    register char *str=lgetwbuf;
+	int i = LINBUFSIZE, ch;
+	char *str = lgetwbuf;
+
     for ( ; ; --i) {
         *str++ = ch = lgetc();
         if (ch == 0) {
@@ -618,6 +448,8 @@ char *lgetl()
     }
 }
 
+
+
 /*
  *  lcreat(filename)            Create a new file for write
  *      char *filename;
@@ -625,20 +457,21 @@ char *lgetl()
  *  lcreat((char*)0); means to the terminal
  *  Returns -1 if error, otherwise the file descriptor opened.
  */
-lcreat(str)
-    char *str;
-    {
+int lcreat(char *str)
+{
     lpnt = lpbuf;   lpend = lpbuf+BUFBIG;
     if (str==NULL) return(lfd=1);
     if ((lfd=creat(str,0644)) < 0) 
         {
         lfd=1; lprintf("error creating file <%s>\n",str); lflush(); return(-1);
         }
-# ifdef MSDOS
+
     setmode(lfd, O_BINARY);
-# endif
-    return(lfd);
-    }
+
+    return lfd;
+}
+
+
 
 /*
  *  lopen(filename)         Open a file for read
@@ -647,20 +480,23 @@ lcreat(str)
  *  lopen(0) means from the terminal
  *  Returns -1 if error, otherwise the file descriptor opened.
  */
-lopen(str)
-    char *str;
-    {
-    ipoint = iepoint = MAXIBUF;
-    if (str==NULL) return(fd=0);
-    if ((fd=open(str,0)) < 0)
+int lopen(char *str)
+{
+	ipoint = iepoint = MAXIBUF;
+	
+	if (str==NULL) return(fd=0);
+
+	if ((fd=open(str,0)) < 0)
         {
         lwclose(); lfd=1; lpnt=lpbuf; return(-1);
         }
-# ifdef MSDOS
+
     setmode(fd, O_BINARY);
-# endif
-    return(fd);
-    }
+
+	return fd;
+}
+    
+
 
 /*
  *  lappend(filename)       Open for append to an existing file
@@ -669,112 +505,109 @@ lopen(str)
  *  lappend(0) means to the terminal
  *  Returns -1 if error, otherwise the file descriptor opened.
  */
-lappend(str)
-    char *str;
-    {
+int lappend(char *str)
+{
     lpnt = lpbuf;   lpend = lpbuf+BUFBIG;
     if (str==NULL) return(lfd=1);
     if ((lfd=open(str,2)) < 0)
         {
         lfd=1; return(-1);
         }
-# ifdef MSDOS
+
     setmode(lfd, O_BINARY);
-# endif
+
     lseek(lfd,0L,2);    /* seek to end of file */
-    return(lfd);
-    }
+    
+	return lfd;
+}
+
+
 
 /*
  *  lrclose()                       close the input file
  *
  *  Returns nothing of value.
  */
-lrclose()
-    {
-    if (fd > 0) close(fd);
-    }
+void lrclose(void)
+{
+
+	if (fd > 0) {
+		
+		close(fd);
+	}
+}
+
+    
 
 /*
  *  lwclose()                       close output file flushing if needed
  *
  *  Returns nothing of value.
  */
-lwclose()
-    {
-    lflush();   if (lfd > 2) close(lfd);
-    }
+void lwclose(void)
+{
+	lflush();
+	
+	if (lfd > 2) {
+		
+		close(lfd);
+	}
+}
+    
+    
 
 /*
  *  lprcat(string)                  append a string to the output buffer
  *                                  avoids calls to lprintf (time consuming)
  */
-lprcat(str)
-    register char *str;
-    {
-    register char *str2;
-    if (lpnt >= lpend) lflush(); 
-    str2 = lpnt;
-    while (*str2++ = *str++);
-    lpnt = str2 - 1;
-    }
+void lprcat(char *str)
+{
+	char *str2;
+	
+	if (lpnt >= lpend) {
+		
+		lflush();
+	}
+	
+	str2 = lpnt;
+	
+	while ((*str2++ = *str++) != '\0') 
+		;
+	
+	lpnt = str2 - 1;
+}
 
-#ifdef VT100
-/*
- *  cursor(x,y)         Subroutine to set the cursor position
- *
- *  x and y are the cursor coordinates, and lpbuff is the output buffer where
- *  escape sequence will be placed. 
- */
-static char *y_num[]= { "\33[","\33[","\33[2","\33[3","\33[4","\33[5","\33[6",
-    "\33[7","\33[8","\33[9","\33[10","\33[11","\33[12","\33[13","\33[14",
-    "\33[15","\33[16","\33[17","\33[18","\33[19","\33[20","\33[21","\33[22",
-    "\33[23","\33[24" };
 
-static char *x_num[]= { "H","H",";2H",";3H",";4H",";5H",";6H",";7H",";8H",";9H",
-    ";10H",";11H",";12H",";13H",";14H",";15H",";16H",";17H",";18H",";19H",
-    ";20H",";21H",";22H",";23H",";24H",";25H",";26H",";27H",";28H",";29H",
-    ";30H",";31H",";32H",";33H",";34H",";35H",";36H",";37H",";38H",";39H",
-    ";40H",";41H",";42H",";43H",";44H",";45H",";46H",";47H",";48H",";49H",
-    ";50H",";51H",";52H",";53H",";54H",";55H",";56H",";57H",";58H",";59H",
-    ";60H",";61H",";62H",";63H",";64H",";65H",";66H",";67H",";68H",";69H",
-    ";70H",";71H",";72H",";73H",";74H",";75H",";76H",";77H",";78H",";79H",
-    ";80H" };
 
-cursor(x,y)
-    int x,y;
-    {
-    register char *p;
-    if (lpnt >= lpend) lflush();
-
-    p = y_num[y];   /* get the string to print */
-    while (*p) *lpnt++ = *p++;  /* print the string */
-
-    p = x_num[x];   /* get the string to print */
-    while (*p) *lpnt++ = *p++;  /* print the string */
-    }
-#else VT100
 /*
  * cursor(x,y)    Put cursor at specified coordinates staring at [1,1] (termcap)
  */
-cursor (x,y)
-    int x,y;
-    {
-    if (lpnt >= lpend) lflush ();
+void cursor(int x, int y)
+{
+	
+	if (lpnt >= lpend) {
+		
+		lflush ();
+	}
 
-    *lpnt++ = CURSOR;       *lpnt++ = x;        *lpnt++ = y;
-    }
-#endif VT100
+	*lpnt++ = CURSOR;
+	*lpnt++ = x;
+	*lpnt++ = y;
+}
+
+
 
 /*
  *  Routine to position cursor at beginning of 24th line
  */
-cursors()
-    {
-    cursor(1,24);
-    }
+void cursors(void)
+{
 
-#ifndef VT100
+	cursor(1, 24);
+}
+
+
+
 /*
  * Warning: ringing the bell is control code 7. Don't use in defines.
  * Don't change the order of these defines.
@@ -782,163 +615,169 @@ cursors()
  * obvious meanings.
  */
 
-static char cap[256];
-static char *CM, *CE, *CD, *CL, *SO, *SE, *AL, *DL, *TI, *TE;/* Termcap capabilities */
-static char *outbuf=0;  /* translated output buffer */
+/* translated output buffer */
+static char *	outbuf = NULL;  
 
-static int ttputch ();
-
+    
 /*
- * init_term()      Terminal initialization -- setup termcap info
+ * ANSI control sequences
  */
-init_term()
-    {
-    char termbuf[1024];
-    char *capptr = cap+10;
-    char *term;
 
-# ifdef MSDOS
-    term = getenv("TERM");
-    if (term == NULL)
-        term = "ibmpc-mono";
-    switch (tgetent(termbuf, term))
-# else
-# ifdef VMS
-    term = getenv("TERM");
-    if (term == NULL)
-        term = getenv("TERMINAL");
-    switch (tgetent(termbuf, term))
-# else
-    switch (tgetent(termbuf, term = getenv("TERM")))
-# endif
-# endif
-        {
-        case -1: 
-            write(2, "Cannot open termcap file.\n", 26); exit();
-        case 0: 
-            write(2, "Cannot find entry of ", 21);
-            write(2, term, strlen (term));
-            write(2, " in termcap\n", 12);
-            exit();
-        };
+/* clear to end of line */
+static const char CE[] = {27, '[', 'K', 0};
 
-    CM = tgetstr("cm", &capptr);  /* Cursor motion */
-    CE = tgetstr("ce", &capptr);  /* Clear to eoln */
-    CL = tgetstr("cl", &capptr);  /* Clear screen */
+/* clear to end of display */
+static char *CD = NULL; 
 
-/* OPTIONAL */
-    AL = tgetstr("al", &capptr);  /* Insert line */
-    DL = tgetstr("dl", &capptr);  /* Delete line */
-    SO = tgetstr("so", &capptr);  /* Begin standout mode */
-    SE = tgetstr("se", &capptr);  /* End standout mode */
-    CD = tgetstr("cd", &capptr);  /* Clear to end of display */
-    TI = tgetstr("ti", &capptr);  /* Terminal initialization */
-    TE = tgetstr("te", &capptr);  /* Terminal end */
+/* clear screen */
+static const char CL[] = {27, '[', ';', 'H', 27, '[', '2', 'J', 0};
 
-    if (!CM)    /* can't find cursor motion entry */
-        {
-        write(2, "Sorry, for a ",13);       write(2, term, strlen(term));
-        write(2, ", I can't find the cursor motion entry in termcap\n",50);
-        exit();
+/* cursor motion */
+static const char CM[] = {27, '[', '%', 'i', '%', '2', ';', '%', '2', 'H', 0};
+
+/* insert line */
+static const char AL[] = {27, '[', 'L', 0};
+
+/* delete line */
+static const char DL[] = {27, '[', 'M', 0};
+
+/* begin standout mode */
+static const char SO[] = {27, '[', '1', 'm', 0};
+
+/* end standout mode */
+static const char SE[] = {27, '[', 'm', 0};
+
+/* terminal initialization */
+static const char TI[] = {27, '[', 'm', 0};
+
+/* terminal end */
+static const char TE[] = {27, '[', 'm', 0};
+
+
+
+
+static void	ttputch(int);
+    
+    
+/*
+ * init_term()      Terminal initialization
+ */
+void init_term(void)
+{
+
+	/* get memory for decoded output buffer*/
+	outbuf = malloc(BUFBIG + 16);
+	
+	if (outbuf == NULL) {
+
+		write(2, "Error malloc'ing memory for decoded" 
+			" output buffer\n", 50);
+
+		/* malloc() failure */
+		died(-285); 
         }
-    if (!CE)    /* can't find clear to end of line entry */
-        {
-        write(2, "Sorry, for a ",13);       write(2, term, strlen(term));
-        write(2,", I can't find the clear to end of line entry in termcap\n",57);
-        exit();
-        }
-    if (!CL)    /* can't find clear entire screen entry */
-        {
-        write(2, "Sorry, for a ",13);       write(2, term, strlen(term));
-        write(2, ", I can't find the clear entire screen entry in termcap\n",56);
-        exit();
-        }
-    if ((outbuf=(char *)malloc(BUFBIG+16))==0) /* get memory for decoded output buffer*/
-        {
-        write(2,"Error malloc'ing memory for decoded output buffer\n",50);
-        died(-285); /* malloc() failure */
-        }
-    }
-#endif VT100
+	
+	ansiterm_init();
+}
+
 
 /*
  * cl_line(x,y)  Clear the whole line indicated by 'y' and leave cursor at [x,y]
  */
-cl_line(x,y)
-    int x,y;
-    {
-#ifdef VT100
-    cursor(x,y);        lprcat("\33[2K");
-#else VT100
-    cursor(1,y);        *lpnt++ = CL_LINE;      cursor(x,y);
-#endif VT100
-    }
+void cl_line(int x, int y)
+{
+
+	cursor(1, y);
+	
+	*lpnt++ = CL_LINE;
+
+	cursor(x,y);
+}
+
+
 
 /*
  * cl_up(x,y) Clear screen from [x,1] to current position. Leave cursor at [x,y]
  */
-cl_up(x,y)
-    register int x,y;
-    {
-#ifdef VT100
-    cursor(x,y);  lprcat("\33[1J\33[2K");
-#else VT100
-    register int i;
-    cursor(1,1);
-    for (i=1; i<=y; i++)   { *lpnt++ = CL_LINE;  *lpnt++ = '\n'; }
-    cursor(x,y);
-#endif VT100
-    }
+void cl_up(int x, int y)
+{
+	int i;
+	
+	cursor(1, 1);
+	
+	for (i = 1; i <= y; i++) {
+		
+		*lpnt++ = CL_LINE;
+		*lpnt++ = '\n';
+	}
+	
+	cursor(x,y);
+}
+
+
+
 
 /*
  * cl_dn(x,y)   Clear screen from [1,y] to end of display. Leave cursor at [x,y]
  */
-cl_dn(x,y)
-    register int x,y;
-    {
-#ifdef VT100
-    cursor(x,y); lprcat("\33[J\33[2K");
-#else VT100
-    register int i;
-    cursor(1,y);
-    if (!CD)
-        {
-        *lpnt++ = CL_LINE;
-        for (i=y; i<=24; i++) { *lpnt++ = CL_LINE;  if (i!=24) *lpnt++ = '\n'; }
-        cursor(x,y);
-        }
-    else
-        *lpnt++ = CL_DOWN;
-    cursor(x,y);
-#endif VT100
-    }
+void cl_dn(int x, int y)
+{
+	int i;
+	
+	cursor(1, y);
+	
+	if (CD == NULL) {
+
+		*lpnt++ = CL_LINE;
+		
+		for (i=y; i<=24; i++) {
+			
+			*lpnt++ = CL_LINE;
+			
+			if (i!=24) *lpnt++ = '\n';
+		}
+		
+		cursor(x,y);
+
+        } else {
+		
+		*lpnt++ = CL_DOWN;
+	}
+    
+	cursor(x,y);
+}
+
+
 
 /*
- * standout(str)    Print the argument string in inverse video (standout mode).
+ * lstandout(str)    Print the argument string in inverse video (standout mode).
  */
-standout(str)
-    register char *str;
-    {
-#ifdef VT100
-    setbold();
-    while (*str)
-        *lpnt++ = *str++;
-    resetbold();
-#else VT100
-    *lpnt++ = ST_START;
-    while (*str)
-        *lpnt++ = *str++;
-    *lpnt++ = ST_END;
-#endif VT100
-    }
+void lstandout(char *str)
+{
 
+	*lpnt++ = ST_START;
+	
+	while (*str) {
+
+		*lpnt++ = *str++;
+	}
+		
+	*lpnt++ = ST_END;
+}
+
+
+
+    
 /*
  * set_score_output()   Called when output should be literally printed.
  */
-set_score_output()
-    {
-    enable_scroll = -1;
-    }
+void set_score_output(void)
+{
+
+	enable_scroll = -1;
+}
+    
+    
 
 /*
  *  lflush()                        Flush the output buffer
@@ -947,14 +786,15 @@ set_score_output()
  *  for termcap version: Flush output in output buffer according to output
  *                       status as indicated by `enable_scroll'
  */
-#ifndef VT100
 static int scrline=18; /* line # for wraparound instead of scrolling if no DL */
-lflush ()
-    {
-    register int lpoint;
-    register char *str;
-    static int curx = 0;
-    static int cury = 0;
+
+
+void lflush(void)
+{
+	int lpoint;
+	char *str;
+	static int curx = 0;
+	static int cury = 0;
 
     if ((lpoint = lpnt - lpbuf) > 0)
         {
@@ -963,19 +803,14 @@ lflush ()
 #endif
         if (enable_scroll <= -1) {
             flush_buf();
-# ifdef MSDOS
+		
             /* Catch write errors on save files
              */
                 if (write(lfd,lpbuf,lpoint) != lpoint) {
-                    if (save_mode)
-                        longjmp(save_jbuf, -1);
-                    else
                         warn("Error writing output file\n");
                 }
-# else
-                if (write(lfd,lpbuf,lpoint) != lpoint)
-                write(2,"error writing to output file\n",29);
-# endif
+
+	
             lpnt = lpbuf;   /* point back to beginning of buffer */
             return;
         }
@@ -983,60 +818,55 @@ lflush ()
             {
             if (*str>=32)   { ttputch (*str); curx++; }
             else switch (*str) {
-                case CLEAR:     tputs (CL, 1, ttputch);     curx = cury = 0;
+                case CLEAR:     tputs (CL);     curx = cury = 0;
                                 break;
 
-                case CL_LINE:   tputs (CE, 1, ttputch);
+                case CL_LINE:   tputs (CE);
                                 break;
 
-                case CL_DOWN:   tputs (CD, 1, ttputch);
+                case CL_DOWN:   tputs (CD);
                                 break;
 
-                case ST_START:  tputs (SO, 1, ttputch);
+                case ST_START:  tputs (SO);
                                 break;
 
-                case ST_END:    tputs (SE, 1, ttputch);
+                case ST_END:    tputs (SE);
                                 break;
 
                 case CURSOR:    curx = *++str - 1;      cury = *++str - 1;
-                                tputs (tgoto (CM, curx, cury), 1, ttputch);
+                                tputs (atgoto (CM, curx, cury));
                                 break;
 
-                case '\n':      if ((cury == 23) && enable_scroll)
-                                  {
-                                  if (!DL || !AL) /* wraparound or scroll? */
-                                    {
-                                    if (++scrline > 23) scrline=19;
-
-                                    if (++scrline > 23) scrline=19;
-                                    tputs (tgoto (CM, 0, scrline), 1, ttputch);
-                                    tputs (CE, 1, ttputch);
-
-                                    if (--scrline < 19) scrline=23;
-                                    tputs (tgoto (CM, 0, scrline), 1, ttputch);
-                                    tputs (CE, 1, ttputch);
-                                    }
-                                  else
-                                    {
-                                    tputs (tgoto (CM, 0, 19), 1, ttputch);
-                                    tputs (DL, 1, ttputch);
-                                    tputs (tgoto (CM, 0, 23), 1, ttputch);
-                                /*  tputs (AL, 1, ttputch); */
-                                    }
-                                  }
-                                else
-                                  {
-                                  ttputch ('\n');       cury++;
-                                  }
+                case '\n':      
+				if ((cury == 23) && enable_scroll) {
+					  
+					if (++scrline > 23) {
+						
+						scrline=19;
+					}
+					
+					tputs (atgoto (CM, 0, scrline + 1));
+					tputs (CE); 
+					
+					tputs (atgoto (CM, 0, scrline));
+					tputs (CE);
+					
+				} else {
+					
+					ttputch ('\n');
+					cury++;
+				}
+				
                                 curx = 0;
                                 break;
+	
                 case T_INIT:
                     if (TI)
-                        tputs(TI, 1, ttputch);
+                        tputs(TI);
                     break;
                 case T_END:
                     if (TE)
-                        tputs(TE, 1, ttputch);
+                        tputs(TE);
                     break;
                 default:
                     ttputch (*str);
@@ -1046,59 +876,98 @@ lflush ()
         }
     lpnt = lpbuf;
     flush_buf();    /* flush real output buffer now */
-    }
-#else VT100
-/*
- *  lflush()                        flush the output buffer
- *
- *  Returns nothing of value.
- */
-lflush()
-    {
-    register int lpoint;
-    if ((lpoint = lpnt - lpbuf) > 0)
-        {
-#ifdef EXTRA
-        c[BYTESOUT] += lpoint;
-#endif
-        if (write(lfd,lpbuf,lpoint) != lpoint)
-            write(2,"error writing to output file\n",29);
-        }
-    lpnt = lpbuf;   /* point back to beginning of buffer */
-    }
-#endif VT100
+}
 
-#ifndef VT100
+
+
 static int index=0;
+    
 /*
  * ttputch(ch)      Print one character in decoded output buffer.
  */
-static int ttputch(c)
-int c;
-    {
-    outbuf[index++] = c;
-    if (index >= BUFBIG)  flush_buf();
-    }
+static void ttputch(int c)
+{
+
+	outbuf[index++] = c;
+	
+	if (index >= BUFBIG) {
+		
+		flush_buf();
+	}
+}
+
+
+
+/*
+ * Outputs string pointed to by cp
+ */
+static void tputs(const char *cp)
+{
+
+	if (cp == NULL) {
+
+		return;
+	} 
+
+	while (*cp != '\0') {
+
+		ttputch(*cp++);
+	}
+}
+
+
 
 /*
  * flush_buf()          Flush buffer with decoded output.
  */
-static flush_buf()
-    {
-    if (index) write(lfd, outbuf, index);
-    index = 0;
+static void flush_buf(void)
+{
+    if (index) {
+	    
+	if (lfd == 1) {
+	
+		ansiterm_out(outbuf, index);
+
+	} else {
+		
+		write(lfd, outbuf, index);
+	}
     }
+
+    index = 0;
+}
+
+
+
+
+/*
+ *  flushall()  Function to flush all type-ahead in the input buffer
+ */
+void lflushall(void)
+{
+
+	while (kbhit()) {
+	    
+		getch();
+	}
+}
+
+
+
+
+
+
 
 /*
  *  char *tmcapcnv(sd,ss)  Routine to convert VT100 escapes to termcap format
  *
  *  Processes only the \33[#m sequence (converts . files for termcap use 
  */
-char *tmcapcnv(sd,ss)  
-    register char *sd,*ss;
-    {
-    register int tmstate=0; /* 0=normal, 1=\33 2=[ 3=# */
-    char tmdigit=0; /* the # in \33[#m */
+char * tmcapcnv(char *sd, char *ss)  
+{
+	int tmstate=0; /* 0=normal, 1=\33 2=[ 3=# */
+	char tmdigit=0; /* the # in \33[#m */
+
     while (*ss)
         {
         switch(tmstate)
@@ -1125,12 +994,64 @@ char *tmcapcnv(sd,ss)
         }
     *sd=0; /* NULL terminator */
     return(sd);
-    }
-#endif VT100
+}
 
-/*
- *  beep()      Routine to emit a beep if enabled (see no-beep in .larnopts)
- */
-beep() {
-    if (!nobeep) *lpnt++ = '\7';
-    }
+
+
+static void warn(char *msg)
+{
+
+    fprintf(stderr, msg);
+}
+
+
+
+void enter_name(void)
+{
+	int c, i;
+	
+	lprcat("\n\nEnter character name:\n");
+	
+	sncbr();
+	
+	i = 0;
+
+	do {
+		int c;
+		
+		c = ttgetch();
+	
+		if (c == '\n') break;
+		
+		logname[i] = c;
+
+	} while (++i < LOGNAMESIZE - 1);
+	
+	logname[i] = '\0';
+	
+	scbr();
+}
+
+
+void select_sex(void)
+{
+	int c;
+	
+	lprcat("\n\nSelect character sex (0=female,1=male):\n");
+	
+	sncbr();
+	
+	c = ttgetch();
+	
+	if (c == '0') {
+		
+		sex = 0;
+		
+	} else {
+		
+		sex = 1;
+	}
+	
+	scbr();
+}
+

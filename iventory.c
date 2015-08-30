@@ -1,33 +1,16 @@
-#include "header.h"
-#include "larndefs.h"
-#include "objects.h"
-#include "player.h"
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
-#ifdef __STDC__
-	    show1( int, char*[] );
-            show3( int );
-static      show2( int );
-static void t_setup( int );
-static void t_endup( int );
 
-#define SIGNED signed
-#else
-	    show1( );
-            show3( );
-static      show2( );
-static void t_setup( );
-static void t_endup( );
+static int	qshowstr(char);
 
-#define SIGNED
-#endif
+static void	t_setup(int);
+static void	t_endup(int);
 
-static int  qshowstr();
-showwear();
-showwield();
-showread();
-showquaff();
-showeat();
-extern int dropflag;
+static int	show2(int);
+
+
 
 /* Allow only 26 items (a to z) in the player's inventory */
 #define MAXINVEN 26
@@ -49,18 +32,23 @@ extern int dropflag;
     ivenarg  - attribute of each item ( + values, etc )
     ivensort - sorted inventory (so we don't sort each time)
 */
-char iven[MAXINVEN];
-SIGNED  short ivenarg[MAXINVEN];
+signed char iven[MAXINVEN];
+
+signed short ivenarg[MAXINVEN];
+
 unsigned char ivensort[MAXINVEN+1];    /* extra is for sentinel */
+
 
 static char srcount = 0 ; /* line counter for showstr() */
 
+
+
 /*
-  Initialize the player's inventory
-*/
-void init_inventory( )
-    {
-    int i;
+ * Initialize the player's inventory
+ */
+void init_inventory(void)
+{
+	int i;
 
     for ( i = 0; i < MAXINVEN ; i++ )
         {
@@ -80,15 +68,16 @@ void init_inventory( )
     ivenarg[0] = ivenarg[1] = c[WEAR] = ivensort[0] = 0;
     ivensort[1] = c[WIELD] = 1;
     }
-    }
+}
+
+
 
 /*
-    show character's inventory
-*/
-showstr(select_allowed)
-char select_allowed;
-    {
-    register int i,number, item_select;
+ * show character's inventory
+ */
+int showstr(char select_allowed)
+{
+	int i, number, item_select;
 
     for (number=3, i=0; i<MAXINVEN; i++)
         if (iven[i])
@@ -96,17 +85,18 @@ char select_allowed;
     t_setup(number);
     item_select = qshowstr(select_allowed);
     t_endup(number);
-    return( item_select );
-    }
 
-static int qshowstr(select_allowed)
-char select_allowed;
-    {
-    register int i,j,k,sigsav,itemselect=0;
+    return item_select;
+}
+
+
+
+static int qshowstr(char select_allowed)
+{
+	int i, j, k, itemselect = 0;
 
     srcount=0;
-    sigsav=nosignal;
-    nosignal=1; /* don't allow ^c etc */
+
     if (c[GOLD])
         {
         lprintf(".)   %d gold pieces",(long)c[GOLD]);
@@ -129,262 +119,410 @@ char select_allowed;
     lprintf("\nElapsed time is %d.  You have %d mobuls left",(long)((gtime+99)/100+1),(long)((TIMELIMIT-gtime)/100));
     itemselect = more(select_allowed);     
 quitit:
-    nosignal=sigsav;
     if (select_allowed)
     return( (itemselect > 0) ? itemselect : 0 );
     else
     return( 0 );
-    }
+}
+
+    
 
 /*
- subroutine to clear screen depending on # lines to display
-
-*/
-static void t_setup(count)
-register int count;
-    {
-    if (count<20)  /* how do we clear the screen? */
-        {
-        cl_up(79,count);
-        cursor(1,1);
-        }
-    else
-        {
-        resetscroll();
-        clear();
-        }
-    }
-
-/*
- subroutine to restore normal display screen depending on t_setup()
-
-*/
-static void t_endup(count)
-register int count;
-    {
-    if (count<18)  /* how did we clear the screen? */
-        draws(0,MAXX,0,(count>MAXY) ? MAXY : count);
-    else
-        {
-        drawscreen(); 
-        setscroll();
-        }
-    }
-
-/*
-    function to show the things player is wearing only
+ * subroutine to clear screen depending on # lines to display
  */
-showwear()
-    {
-    register int i,j,sigsav,count,itemselect=0;
+static void t_setup(int count)
+{
 
-    sigsav=nosignal;  nosignal=1; /* don't allow ^c etc */
-    srcount=0;
+	/* how do we clear the screen? */
+	if (count < 20) {
+		
+		cl_up(79, count);
+		cursor(1, 1);
+		
+        } else {
 
-    for (count=2,j=0; j< MAXINVEN; j++)   /* count number of items we will display */
-        if (i=iven[j])
-            switch(i)
-            {
-            case OLEATHER:  case OPLATE:    case OCHAIN:
-            case ORING:     case OSTUDLEATHER:  case OSPLINT:
-            case OPLATEARMOR:   case OSSPLATE:  case OSHIELD:
-            count++;
-            };
+		resetscroll();
+		clear();
+        }
+}
 
-    t_setup(count);
 
-    for (i=22; i<84; i++)
-         for (j=0; j< MAXINVEN; j++)
-           if (i==iven[j])
-            switch(i)
-                {
-                case OLEATHER:  case OPLATE:    case OCHAIN:
-                case ORING:     case OSTUDLEATHER:  case OSPLINT:
-                case OPLATEARMOR:   case OSSPLATE:  case OSHIELD:
-                if (itemselect = show2(j))
-            goto quitit;
-                };
-    itemselect = more(TRUE);     
-quitit:
-    nosignal=sigsav;    
-    t_endup(count);
-    return( (itemselect > 1) ? itemselect : 0 );
-    }
 
 /*
-    function to show the things player can wield only
+ * subroutine to restore normal display screen depending on t_setup()
  */
-showwield()
-    {
-    register int i,j,sigsav,count,itemselect=0;
-    sigsav=nosignal;  nosignal=1; /* don't allow ^c etc */
-    srcount=0;
+static void t_endup(int count)
+{
 
-     for (count=2,j=0; j< MAXINVEN; j++)  /* count how many items */
-       if (i=iven[j])
-        switch(i)
-            {
-            case ODIAMOND:  case ORUBY:  case OEMERALD:  case OSAPPHIRE:
-            case OBOOK:     case OCHEST:  case OLARNEYE: case ONOTHEFT:
-            case OSPIRITSCARAB:  case OCUBEofUNDEAD:
-            case OPOTION:   case OSCROLL:  break;
-            default:  count++;
-            };
+	/* how did we clear the screen? */
+	if (count < 18) {  
+		
+		draws(0,MAXX,0,(count>MAXY) ? MAXY : count);
+		
+	} else {
+		
+		drawscreen(); 
+		setscroll();
+        }
+}
 
-    t_setup(count);
 
-    for (i=22; i<84; i++)
-         for (j=0; j< MAXINVEN; j++)
-           if (i==iven[j])
-            switch(i)
-                {
-                case ODIAMOND:  case ORUBY:  case OEMERALD:  case OSAPPHIRE:
-                case OBOOK:     case OCHEST:  case OLARNEYE: case ONOTHEFT:
-                case OSPIRITSCARAB:  case OCUBEofUNDEAD:
-                case OPOTION:   case OSCROLL:  
-            break;
-                default:  
-            if (itemselect = show2(j))
-            goto quitit;
-                };
-    itemselect = more(TRUE);     
-quitit:
-    nosignal=sigsav;    
-    t_endup(count);
-    return( (itemselect > 1) ? itemselect : 0 );
-    }
 
 /*
- *  function to show the things player can read only
+ * function to show the things player is wearing only
  */
-showread()
-    {
-    register int i,j,sigsav,count,itemselect = 0;
-    sigsav=nosignal;  nosignal=1; /* don't allow ^c etc */
-    srcount=0;
+int showwear(void)
+{	
+	int i, count, itemselect;
 
-    for (count=2,j=0; j< MAXINVEN; j++)
-        switch(iven[j])
-            {
-            case OBOOK: case OSCROLL:   count++;
-            };
-    t_setup(count);
+	itemselect = 0;
+	
+	srcount = 0;
 
-    for (i=22; i<84; i++)
-         for (j=0; j< MAXINVEN; j++)
-           if (i==iven[j])
-            switch(i)
-                {
-                case OBOOK: case OSCROLL:
-            if (itemselect = show2(j))
-            goto quitit;
-                };
-    itemselect = more(TRUE);
-quitit:
-    nosignal=sigsav;
-    t_endup(count);
-    return((itemselect > 1) ? itemselect : 0 );
-    }
+	for (count = 2, i = 0; i < MAXINVEN; i++) {
+
+		switch (iven[i]) {
+
+		case OLEATHER:
+		case OPLATE:
+		case OCHAIN:
+		case ORING:
+		case OSTUDLEATHER:
+		case OSPLINT:
+		case OPLATEARMOR:
+		case OSSPLATE:
+		case OSHIELD:
+			++count;
+			break;
+		}
+	}
+	    
+	t_setup(count);
+
+	for (i = 0; i < MAXINVEN; i++) {
+	
+		switch (iven[i]) {
+	
+		case OLEATHER:
+		case OPLATE:
+		case OCHAIN:
+		case ORING:
+		case OSTUDLEATHER:
+		case OSPLINT:
+		case OPLATEARMOR:
+		case OSSPLATE:
+		case OSHIELD:
+			itemselect = show2(i);
+			break;
+		}
+		
+		if (itemselect) break;
+	}
+
+	if (!itemselect) {
+
+		itemselect = more(TRUE);
+	}
+
+	t_endup(count);
+
+	if (itemselect > 1) {
+		
+		return itemselect;
+		
+	}
+
+	return 0;
+}
+
+
+
+/*
+ * function to show the things player can wield only
+ */
+int showwield(void)
+{
+	int i, count, itemselect;
+
+	itemselect = 0;
+	
+	srcount = 0;
+
+	for (count = 2, i = 0; i < MAXINVEN; i++) {
+
+		switch (iven[i]) {
+
+		case ODIAMOND:
+		case ORUBY:
+		case OEMERALD:
+		case OSAPPHIRE:
+                case OBOOK:
+		case OCHEST:
+		case OLARNEYE:
+		case ONOTHEFT:
+                case OSPIRITSCARAB:
+		case OCUBEofUNDEAD:
+                case OPOTION:
+		case OSCROLL:  
+			++count;
+			break;
+		}
+	}
+	    
+	t_setup(count);
+
+	for (i = 0; i < MAXINVEN; i++) {
+	
+		switch (iven[i]) {
+	
+		case ODIAMOND:
+		case ORUBY:
+		case OEMERALD:
+		case OSAPPHIRE:
+                case OBOOK:
+		case OCHEST:
+		case OLARNEYE:
+		case ONOTHEFT:
+                case OSPIRITSCARAB:
+		case OCUBEofUNDEAD:
+                case OPOTION:
+		case OSCROLL:
+			itemselect = show2(i);
+			break;
+		}
+		
+		if (itemselect) break;
+	}
+
+	if (!itemselect) {
+
+		itemselect = more(TRUE);
+	}
+
+	t_endup(count);
+
+	if (itemselect > 1) {
+		
+		return itemselect;
+		
+	}
+
+	return 0;
+}
+
+
+
+/*
+ * function to show the things player can read only
+ */
+int showread(void)
+{		
+	int i, count, itemselect;
+
+	itemselect = 0;
+	
+	srcount = 0;
+
+	for (count = 2, i = 0; i < MAXINVEN; i++) {
+
+		switch (iven[i]) {
+
+		case OBOOK:
+		case OSCROLL:
+			++count;
+			break;
+		}
+	}
+	    
+	t_setup(count);
+
+	for (i = 0; i < MAXINVEN; i++) {
+	
+		switch (iven[i]) {
+	
+		case OBOOK:
+		case OSCROLL:
+			itemselect = show2(i);
+			break;
+		}
+		
+		if (itemselect) break;
+	}
+
+	if (!itemselect) {
+
+		itemselect = more(TRUE);
+	}
+
+	t_endup(count);
+
+	if (itemselect > 1) {
+		
+		return itemselect;
+		
+	}
+
+	return 0;
+}
+
+
 
 /*
  *  function to show the things player can eat only
  */
-showeat()
-    {
-    register int i,j,sigsav,count,itemselect=0;
-    sigsav=nosignal;  nosignal=1; /* don't allow ^c etc */
-    srcount=0;
+int showeat(void)
+{
+	int i, count, itemselect;
 
-    for (count=2,j=0; j< MAXINVEN; j++)
-        switch(iven[j])
-            {
-            case OCOOKIE:   count++;
-            };
-    t_setup(count);
+	itemselect = 0;
+	
+	srcount = 0;
 
-    for (i=22; i<84; i++)
-         for (j=0; j< MAXINVEN; j++)
-           if (i==iven[j])
-            switch(i)
-                {
-                case OCOOKIE:   
-            if (itemselect=show2(j))
-            goto quitit;
-                };
-    itemselect = more(TRUE);     
-quitit:
-    nosignal=sigsav;    
-    t_endup(count);
-    return( (itemselect > 1) ? itemselect : 0 );
-    }
+	for (count = 2, i = 0; i < MAXINVEN; i++) {
+
+		switch (iven[i]) {
+
+		case OCOOKIE:
+			++count;
+			break;
+		}
+	}
+	    
+	t_setup(count);
+
+	for (i = 0; i < MAXINVEN; i++) {
+	
+		switch (iven[i]) {
+	
+		case OCOOKIE: 
+			itemselect = show2(i);
+			break;
+		}
+		
+		if (itemselect) break;
+	}
+
+	if (!itemselect) {
+
+		itemselect = more(TRUE);
+	}
+
+	t_endup(count);
+
+	if (itemselect > 1) {
+		
+		return itemselect;
+		
+	}
+
+	return 0;
+}
+
+    
 
 /*
-    function to show the things player can quaff only
+ * function to show the things player can quaff only
  */
-showquaff()
-    {
-    register int i,j,sigsav,count,itemselect=0;
-    sigsav=nosignal;  nosignal=1; /* don't allow ^c etc */
-    srcount=0;
+int showquaff(void)
+{
+	int i, count, itemselect;
 
-    for (count=2,j=0; j< MAXINVEN; j++)
-        switch(iven[j])
-            {
-            case OPOTION:   count++;
-            };
-    t_setup(count);
+	itemselect = 0;
+	
+	srcount = 0;
 
-    for (i=22; i<84; i++)
-         for (j=0; j< MAXINVEN; j++)
-           if (i==iven[j])
-            switch(i)
-                {
-                case OPOTION:
-            if (itemselect=show2(j))
-            goto quitit;
-                };
-    itemselect = more(TRUE);
-quitit:
-    nosignal=sigsav;
-    t_endup(count);
-    return( (itemselect > 1 ) ? itemselect : 0 );
-    }
+	for (count = 2, i = 0; i < MAXINVEN; i++) {
 
-show1(idx,str2)
-    register int idx;
-    register char *str2[];
-    {
-        lprc('\n');
-        cltoeoln();
-    if (str2==0)
-        lprintf("%c)   %s",idx+'a',objectname[iven[idx]]);
-    else if (*str2[ivenarg[idx]]==0)
-        lprintf("%c)   %s",idx+'a',objectname[iven[idx]]);
-    else
-        lprintf("%c)   %s of%s",idx+'a',objectname[iven[idx]],str2[ivenarg[idx]]);
-    }
+		switch (iven[i]) {
 
-show3(index)
-register int index ;
-    {
-    srcount=0;
-    return( show2(index) );
-    }
+		case OPOTION:
+			++count;
+			break;
+		}
+	}
+	    
+	t_setup(count);
 
-static int show2(index)
-register int index;
-    {
-    register int itemselect = 0;
+	for (i = 0; i < MAXINVEN; i++) {
+	
+		switch (iven[i]) {
+	
+		case OPOTION: 
+			itemselect = show2(i);
+			break;
+		}
+		
+		if (itemselect) break;
+	}
+
+	if (!itemselect) {
+
+		itemselect = more(TRUE);
+	}
+
+	t_endup(count);
+
+	if (itemselect > 1) {
+		
+		return itemselect;
+		
+	}
+
+	return 0;
+}
+
+    
+
+void show1(int idx)
+{
+	signed char o;
+	
+	lprc('\n');
+	
+	cltoeoln();
+	
+	o = iven[idx];
+	
+	lprintf("%c)   %s", idx + 'a', objectname[o]);
+	
+	if (o == OPOTION && potionname[ivenarg[idx]][0] != '\0') {
+			
+		lprintf(" of%s", idx + 'a', 
+			objectname[o],  potionname[ivenarg[idx]]
+		);
+		
+	} else if (o == OSCROLL && scrollname[ivenarg[idx]][0] != '\0') {
+			
+		lprintf(" of%s", idx + 'a', 
+			objectname[o],  scrollname[ivenarg[idx]]
+		);
+	}
+}
+    
+
+
+int show3(int index)
+{
+
+	srcount=0;
+
+	return show2(index);
+}
+
+
+    
+static int show2(int index)
+{
+	int itemselect = 0;
 
     switch(iven[index])
         {
-        case OPOTION:   show1(index,potionname);  break;
-        case OSCROLL:   show1(index,scrollname);  break;
-
+        case OPOTION:
+        case OSCROLL:
         case OLARNEYE:      case OBOOK:         case OSPIRITSCARAB:
         case ODIAMOND:      case ORUBY:         case OCUBEofUNDEAD:
         case OEMERALD:      case OCHEST:        case OCOOKIE:
-        case OSAPPHIRE:     case ONOTHEFT:      show1(index,(char **)0);  break;
+        case OSAPPHIRE:     case ONOTHEFT:      show1(index);  break;
 
         default:
         lprc('\n');
@@ -405,16 +543,17 @@ register int index;
     clear(); 
     }
     return( itemselect );
-    }
+}
+
 
 /*
-    function to put something in the players inventory
-    returns 0 if success, 1 if a failure
-*/
-take(itm,arg)
-    int itm,arg;
-    {
-    register int i,limit;
+ * function to put something in the players inventory
+ * returns 0 if success, 1 if a failure
+ */
+int take(int itm, int arg)
+{
+	int i, limit;
+
 /*  cursors(); */
     if ((limit = 15+(c[LEVEL]>>1)) > MAXINVEN)
         limit=MAXINVEN;
@@ -441,21 +580,23 @@ take(itm,arg)
             if (limit) bottomline();  return(0);
             }
     lprcat("\nYou can't carry anything else");  return(1);
-    }
+}
+
+    
 
 /*
-    subroutine to drop an object  returns 1 if something there already else 0
+ * subroutine to drop an object  returns 1 if something there already else 0
  */
-drop_object(k)
-    int k;
-    {
+int drop_object(int k)
+{
     int itm;
+
     if ((k<0) || (k>=MAXINVEN)) 
     return(0);
     itm = iven[k];  cursors();
     if (itm==0) { lprintf("\nYou don't have item %c! ",k+'a'); return(1); }
     if (item[playerx][playery])
-        { beep(); lprcat("\nThere's something here already"); return(1); }
+        { lprcat("\nThere's something here already"); return(1); }
     if (playery==MAXY-1 && playerx==33) return(1); /* not in entrance */
     item[playerx][playery] = itm;
     iarg[playerx][playery] = ivenarg[k];
@@ -466,19 +607,32 @@ drop_object(k)
     adjustcvalues(itm,ivenarg[k]);
     dropflag=1; /* say dropped an item so wont ask to pick it up right away */
     return(0);
-    }
+}
+
+
 
 /*
-    routine to tell if player can carry one more thing
-    returns 1 if pockets are full, else 0
-*/
-pocketfull()
-    {
-    register int i,limit; 
-    if ((limit = MIN_LIMIT + (c[LEVEL]>>1) ) > MAXINVEN )  
-    limit = MAXINVEN;
-    for (i=0; i<limit; i++) 
-    if (iven[i]==0) 
-        return(0);
-    return(1);
-    }
+ * routine to tell if player can carry one more thing
+ * returns 1 if pockets are full, else 0
+ */
+int pocketfull(void)
+{
+	int i, limit;
+	
+	limit = MIN_LIMIT + (c[LEVEL] >> 1);
+
+	if (limit > MAXINVEN ) {
+
+		limit = MAXINVEN;
+	}
+	
+	for (i = 0; i < limit; i++) {
+		
+		if (iven[i] == 0) {
+	
+			return 0;
+		}
+	}
+    
+	return 1;
+}

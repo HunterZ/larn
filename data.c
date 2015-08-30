@@ -1,12 +1,12 @@
-#include "header.h"
-#include "monsters.h"
-#include "objects.h"
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
 #define VER    12
-#define SUBVER  3
+#define SUBVER  4
 
 /*
-    class[c[LEVEL]-1] gives the correct name of the players experience level
+    classname[c[LEVEL]-1] gives the correct name of the players experience level
 */
 static char aa1[] = " mighty evil master";
 static char aa2[] = "apprentice demi-god";
@@ -17,7 +17,7 @@ static char aa6[] = "    major deity    ";
 static char aa7[] = "  novice guardian  ";
 static char aa8[] = "apprentice guardian";
 static char aa9[] = "    The Creator    ";
-char *class[]=
+char *classname[]=
 {   "  novice explorer  ", "apprentice explorer", " practiced explorer",/*  -3*/
     "   expert explorer ", "  novice adventurer", "     adventurer    ",/*  -6*/
     "apprentice conjurer", "     conjurer      ", "  master conjurer  ",/*  -9*/
@@ -76,36 +76,32 @@ long skill[] = {
 #undef MEG
 
 char *lpbuf,*lpnt,*inbuffer,*lpend; /* input/output pointers to the buffers */
-# ifdef MSDOS
-RAMBLOCK *ramblks;
-DISKBLOCK *diskblks;
-# else
+
 struct cel *cell;   /*  pointer to the dungeon storage  */
-# endif
+
 short hitp[MAXX][MAXY];     /*  monster hp on level     */
 short iarg[MAXX][MAXY]; /*  arg for the item array  */
-char item[MAXX][MAXY];  /*  objects in maze if any  */
-char know[MAXX][MAXY];  /*  1 or 0 if here before   */
-char mitem[MAXX][MAXY]; /*  monster item array      */
-char stealth[MAXX][MAXY];   /*  0=sleeping 1=awake monst*/
+signed char item[MAXX][MAXY];  /*  objects in maze if any  */
+signed char know[MAXX][MAXY];  /*  1 or 0 if here before   */
+signed char mitem[MAXX][MAXY]; /*  monster item array      */
+signed char stealth[MAXX][MAXY];   /*  0=sleeping 1=awake monst*/
 char lastmonst[40];     /*  this has the name of the current monster    */
-char beenhere[MAXLEVEL+MAXVLEVEL];  /*  1 if have been on this level */
-char VERSION=VER;   /*  this is the present version # of the program    */
-char SUBVERSION=SUBVER;
-char nosignal=0;    /* set to 1 to disable the signals from doing anything */
-char predostuff=0;  /*  2 means that the trap handling routines must do a
+signed char beenhere[MAXLEVEL+MAXVLEVEL];  /*  1 if have been on this level */
+signed char VERSION=VER;   /*  this is the present version # of the program    */
+signed char SUBVERSION=SUBVER;
+signed char predostuff=0;  /*  2 means that the trap handling routines must do a
                         showplayer() after a trap.  0 means don't showplayer()
                         0 - we are in create player screen
                         1 - we are in welcome screen
                         2 - we are in the normal game   */
-char loginname[20];     /* players login name */
-char logname[LOGNAMESIZE];  /* players name storage for scoring             */
-char sex=1;             /*  default is a man  0=woman                       */
-char boldon=1;          /*  1=bold objects  0=inverse objects               */
-char ckpflag=0;         /*  1 if want checkpointing of game, 0 otherwise    */
-char cheat=0;           /*  1 if the player has fudged save file            */
-char level=0;           /*  cavelevel player is on = c[CAVELEVEL]           */
-char wizard=0;          /*  the wizard mode flag                            */
+
+char logname[LOGNAMESIZE];  /* the player's name */
+
+
+signed char sex=1;             /*  default is a man  0=woman                       */
+signed char cheat=0;           /*  1 if the player has fudged save file            */
+signed char level=0;           /*  cavelevel player is on = c[CAVELEVEL]           */
+signed char wizard=0;          /*  the wizard mode flag                            */
 short lastnum=0;        /* the number of the monster last hitting player    */
 short hitflag=0;        /*  flag for if player has been hit when running    */
 short hit2flag=0;       /*  flag for if player has been hit when running    */
@@ -113,11 +109,10 @@ short hit3flag=0;       /*  flag for if player has been hit flush input     */
 short playerx,playery;  /*  the room on the present level of the player     */
 short lastpx,lastpy;    /*  0 --- MAXX-1  or  0 --- MAXY-1                  */
 short oldx,oldy;
-char  prayed = 1;       /* did player pray at an altar (command mode)? needs
+signed char  prayed = 1;       /* did player pray at an altar (command mode)? needs
                            to be saved, but I don't want to add incompatibility
                            right now.  KBR 1/11/90 */
 short lasthx=0,lasthy=0;/* location of monster last hit by player       */
-short nobeep=0;         /* true if program is not to beep                   */
 unsigned long lrandx=33601;  /*  the random number seed                      */
 long initialtime=0;         /* time playing began                           */
 long gtime=0;               /*  the clock for the game                      */
@@ -129,18 +124,14 @@ struct sphere *spheres=0; /*pointer to linked list for spheres of annihilation*/
 char *levelname[]=
 { " H"," 1"," 2"," 3"," 4"," 5"," 6"," 7"," 8"," 9","10","V1","V2","V3" };
 
-char original_objnamelist[]=".AT_P<_F&^+M=>_$$f*OD#~][[)))(((||||||||{?!BC}o:;,@@@@EVV))([[]]](^.[H***.^^.S.tsTLc_____________________________________________";
-char hacklike_objnamelist[]=".:\\_^<_{%^6|2>_55}$'+#~[[[))))))========-?!?&~~~~~****899)))[[[[[)^.[1$$$.^^.3./0\\4,____________________________________________";
-char objnamelist[MAXOBJECT+1];
+char objnamelist[MAXOBJECT+1] = ".:\\_^<_{%^6|2>_55}$'+#~[[[))))))========-?!"
+	"?&~~~~~****899)))[[[[[)^.[1$$$.^^.3./0\\4,_________";
+
 char monstnamelist[]=".BGHJKOScjtAELNQRZabhiCTYdegmvzFWflorXV.pqsyUkMwDDPxnDDuD........,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,";
 char floorc = '.';
 char wallc  = '#';
-char boldobjects = FALSE ;
-char auto_pickup = FALSE ;
 
-# ifdef MSDOS
-  int DECRainbow, keypad;
-# endif
+
 
 char *objectname[]=
 { 0,"a holy altar","a handsome jewel encrusted throne","the orb","a pit",
@@ -172,13 +163,13 @@ char *objectname[]=
   "","","","","","","","","","","","","","","","","","","",""
  };
 
-
+
 /*
  *  for the monster data
  *
  *  array to do rnd() to create monsters <= a given level
  */
-char monstlevel[] = { 5, 11, 17, 22, 27, 33, 39, 42, 46, 50, 53, 56, 59 };
+signed char monstlevel[] = { 5, 11, 17, 22, 27, 33, 39, 42, 46, 50, 53, 56, 59 };
 
 struct monst monster[] = {
 /*  NAME            LV  AC  DAM ATT DEF GEN INT GOLD    HP  EXP
@@ -277,7 +268,7 @@ struct monst monster[] = {
 
 /*  name array for scrolls      */
 
-char *scrollname[MAXSCROLL+1] = {
+char scrollname[MAXSCROLL+1][MAXSCROLLNAME] = {
 "\0enchant armor",
 "\0enchant weapon",
 "\0enlightenment",
@@ -310,7 +301,7 @@ char *scrollname[MAXSCROLL+1] = {
  };
 
 /*  name array for magic potions    */
-char *potionname[MAXPOTION+1] = {
+char potionname[MAXPOTION+1][MAXPOTIONNAME] = {
 "\0sleep",
 "\0healing",
 "\0raise level",
@@ -347,14 +338,14 @@ char *potionname[MAXPOTION+1] = {
 "\0 ",
 "\0 ",
 "\0zzzzzzzzzzzzzz"    /* sentinel, for the sorted known objects inventory */
- };
+};
 
-
+
 /*
     spell data
  */
-char spelknow[SPNUM];
-char splev[] = { 1, 4, 9, 14, 18, 22, 26, 29, 32, 35, 37, 37, 37, 37, 37 };
+signed char spelknow[SPNUM];
+signed char splev[] = { 1, 4, 9, 14, 18, 22, 26, 29, 32, 35, 37, 37, 37, 37, 37 };
 
 char *spelcode[SPNUM+1]={
     "pro",  "mle",  "dex",  "sle",  "chm",  "ssp",
@@ -436,7 +427,7 @@ char *speldescript[]={
     ""
  };
 
-char spelweird[MAXMONST+8][SPNUM] = {
+signed char spelweird[MAXMONST+8][SPNUM] = {
 /*                      p m d s c s    w s e h c c p i    b c p c h c v    d l d g f f    s h s t m    s g s w a p */
 /*                      r l e l h s    e t n e b r h n    a l l a a k p    r i r l l g    c l t e f    p e u t l e */
 /*                      o e x e m p    b r l l l e a v    l d y n s l r    y t l o o r    a d p l i    h n m w t r */
@@ -556,7 +547,7 @@ char *spelmes[] = { "",
  *  20 - remove curse   21 - annihilation           22 - pulverization
  *  23 - life protection
  */
-char scprob[]= { 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3,
+signed char scprob[]= { 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3,
     3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 9,
     9, 9, 10, 10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 13, 14, 14,
     15, 15, 16, 16, 16, 17, 17, 18, 18, 19, 19, 19, 20, 20, 20, 20, 21, 22,
@@ -575,12 +566,12 @@ char scprob[]= { 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3,
  *  18 - fire resistance    19 - treasure finding       20 - instant healing
  *  21 - cure dianthroritis 22 - poison                 23 - see invisible
  */
-char potprob[] = { 0, 0, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9, 9,
+signed char potprob[] = { 0, 0, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9, 9,
                10, 10, 10, 11, 11, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 19,
                20, 20, 22, 22, 23, 23 };
 
-char nlpts[] = { 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7 };
-char nch[] = { 0, 0, 0, 1, 1, 1, 2, 2, 3, 4 };
-char nplt[] = { 0, 0, 0, 0, 1, 1, 2, 2, 3, 4 };
-char ndgg[] = { 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 5 };
-char nsw[] = { 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 3 };
+signed char nlpts[] = { 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7 };
+signed char nch[] = { 0, 0, 0, 1, 1, 1, 2, 2, 3, 4 };
+signed char nplt[] = { 0, 0, 0, 0, 1, 1, 2, 2, 3, 4 };
+signed char ndgg[] = { 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 5 };
+signed char nsw[] = { 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 3 };

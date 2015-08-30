@@ -1,18 +1,19 @@
-/* regen.c */
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "player.h"
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
+
+
 
 /*
-    regen()
-
-    subroutine to regenerate player hp and spells
+ * regen()
+ *
+ * subroutine to regenerate player hp and spells
  */
-regen()
-    {
-    register int i,flag;
-    register long *d;
+void regen(void)
+{
+	int i, flag;
+	long *d;
+
     d = c;
 #ifdef EXTRA
     d[MOVESMADE]++;
@@ -41,8 +42,8 @@ regen()
     if (d[PROTECTIONTIME])  if (--d[PROTECTIONTIME]<=0) { d[MOREDEFENSES]-=2; flag=1; }
     if (d[DEXCOUNT])        if (--d[DEXCOUNT]<=0)       { d[DEXTERITY]-=3; flag=1; }
     if (d[STRCOUNT])        if (--d[STRCOUNT]<=0)       { d[STREXTRA]-=3; flag=1; }
-    if (d[BLINDCOUNT])      if (--d[BLINDCOUNT]<=0)     { cursors();  lprcat("\nThe blindness lifts  "); beep(); }
-    if (d[CONFUSE])         if (--d[CONFUSE]<=0) { cursors();  lprcat("\nYou regain your senses"); beep(); }
+    if (d[BLINDCOUNT])      if (--d[BLINDCOUNT]<=0)     { cursors();  lprcat("\nThe blindness lifts  "); }
+    if (d[CONFUSE])         if (--d[CONFUSE]<=0) { cursors();  lprcat("\nYou regain your senses"); }
     if (d[GIANTSTR])        if (--d[GIANTSTR]<=0) { d[STREXTRA] -= 20; flag=1; }
     if (d[CHARMCOUNT])      if ((--d[CHARMCOUNT]) <= 0) flag=1;
     if (d[INVISIBILITY])    if ((--d[INVISIBILITY]) <= 0) flag=1;
@@ -59,14 +60,13 @@ regen()
     if (d[GLOBE])           if (--d[GLOBE]<=0) { d[MOREDEFENSES]-=10; flag=1; }
     if (d[SPIRITPRO])       if (--d[SPIRITPRO] <= 0) flag=1;
     if (d[UNDEADPRO])       if (--d[UNDEADPRO] <= 0) flag=1;
-    if (d[HALFDAM])         if (--d[HALFDAM]<=0)  { cursors();  lprcat("\nYou now feel better "); beep(); }
+    if (d[HALFDAM])         if (--d[HALFDAM]<=0)  { cursors();  lprcat("\nYou now feel better "); }
     if (d[SEEINVISIBLE])
       if (--d[SEEINVISIBLE]<=0)
         { monstnamelist[INVISIBLESTALKER] = floorc;
           if (!d[BLINDCOUNT]) {
             cursors();
             lprcat("\nYou feel your vision return to normal");
-            beep();
           }
         }
     if (d[ITCHING])
@@ -77,9 +77,9 @@ regen()
                     {
                     d[WEAR]=d[SHIELD]= -1; cursors();
                     lprcat("\nThe hysteria of itching forces you to remove your armor!"); 
-                    beep(); recalc();  bottomline();
+                    recalc();  bottomline();
                     }
-        if (--d[ITCHING]<=0) { cursors();  lprcat("\nYou now feel the irritation subside!"); beep(); }
+        if (--d[ITCHING]<=0) { cursors();  lprcat("\nYou now feel the irritation subside!"); }
         }
     if (d[CLUMSINESS])
         {
@@ -88,7 +88,7 @@ regen()
               if (item[playerx][playery]==0)    /* only if nothing there */
                 if (rnd(100)<33) /* drop your weapon due to clumsiness */
                     drop_object((int)d[WIELD]);
-        if (--d[CLUMSINESS]<=0) { cursors();  lprcat("\nYou now feel less awkward!"); beep(); }
+        if (--d[CLUMSINESS]<=0) { cursors();  lprcat("\nYou now feel less awkward!"); }
         }
     if (flag) bottomline();
-    }
+}

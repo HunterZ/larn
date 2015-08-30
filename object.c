@@ -1,23 +1,48 @@
 /* object.c */
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
+#include <stdlib.h>
 
-#define min(x,y) (((x)>(y))?(y):(x))
-#define max(x,y) (((x)>(y))?(x):(y))
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
+
+
+static void	ostairs(int);
+
+static void	opotion(int);
+
+static void	oscroll(int);
+
+static void	opit(void);
+static void	obottomless(void);
+static void	ostatue(void);
+static void	omirror(void);
+static void	obook(void);
+
+static void	ocookie(void);
+
+static void	ogold(int);
+
+static void	prompt_enter(void);
+
+static void	prompt_volshaft(int);
+
+static void	o_open_door(void);
+static void	o_closed_door(void);
+
+
+
 
 /* LOOK_FOR_OBJECT
  subroutine to look for an object and give the player his options if an object
  was found.
+ 
+ do_ident;   identify item: T/F 
+ do_pickup;  pickup item:   T/F 
+ do_action;  prompt for actions on object: T/F 
 */
-lookforobject(do_ident, do_pickup, do_action)
-    char            do_ident;   /* identify item: T/F */
-    char            do_pickup;  /* pickup item:   T/F */
-    char            do_action;  /* prompt for actions on object: T/F */
+void lookforobject(char do_ident, char do_pickup, char do_action)
 {
-    register int    i, j;
+	int i, j;
 
     /* can't find objects if time is stopped    */
     if (c[TIMESTOP])
@@ -35,14 +60,14 @@ lookforobject(do_ident, do_pickup, do_action)
     case OMAXGOLD:
     case OKGOLD:
     case ODGOLD:
-        lprcat("\n\nYou have found some gold!");
+        lprcat("\nYou have found some gold!");
         ogold(i);
         break;
 
     case OPOTION:
         if (do_ident)
         {
-            lprcat("\n\nYou have found a magic potion");
+            lprcat("\nYou have found a magic potion");
             if (potionname[j][0])
                 lprintf(" of %s", &potionname[j][1]);
         }
@@ -56,7 +81,7 @@ lookforobject(do_ident, do_pickup, do_action)
     case OSCROLL:
         if (do_ident)
         {
-            lprcat("\n\nYou have found a magic scroll");
+            lprcat("\nYou have found a magic scroll");
             if (scrollname[j][0])
                 lprintf(" of %s", &scrollname[j][1]);
         }
@@ -71,14 +96,14 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nThere is a Holy Altar here!");
+            lprcat("\nThere is a Holy Altar here!");
         if (do_action)
             oaltar();
         break;
 
     case OBOOK:
         if (do_ident)
-            lprcat("\n\nYou have found a book.");
+            lprcat("\nYou have found a book.");
         if (do_pickup)
             if (take(OBOOK, j) == 0)
                 forget();
@@ -88,7 +113,7 @@ lookforobject(do_ident, do_pickup, do_action)
 
     case OCOOKIE:
         if (do_ident)
-            lprcat("\n\nYou have found a fortune cookie.");
+            lprcat("\nYou have found a fortune cookie.");
         if (do_pickup)
             if (take(OCOOKIE, 0) == 0)
                 forget();
@@ -100,7 +125,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprintf("\n\nThere is %s here!", objectname[i]);
+            lprintf("\nThere is %s here!", objectname[i]);
         if (do_action)
             othrone(0);
         break;
@@ -109,27 +134,27 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprintf("\n\nThere is %s here!", objectname[i]);
+            lprintf("\nThere is %s here!", objectname[i]);
         if (do_action)
             othrone(1);
         break;
 
     case ODEADTHRONE:
         if (do_ident)
-            lprintf("\n\nThere is %s here!", objectname[i]);
+            lprintf("\nThere is %s here!", objectname[i]);
         if (do_action)
             odeadthrone();
         break;
 
     case OPIT:
         /* always perform these actions. */
-        lprcat("\n\nYou're standing at the top of a pit.");
+        lprcat("\nYou're standing at the top of a pit.");
         opit();
         break;
 
     case OSTAIRSUP: /* up */
         if (do_ident)
-            lprcat("\n\nThere is a circular staircase here");
+            lprcat("\nThere is a circular staircase here");
         if (do_action)
             ostairs(1);
         break;
@@ -138,7 +163,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nThere is a fountain here");
+            lprcat("\nThere is a fountain here");
         if (do_action)
             ofountain();
         break;
@@ -147,14 +172,14 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nYou are standing in front of a statue");
+            lprcat("\nYou are standing in front of a statue");
         if (do_action)
             ostatue();
         break;
 
     case OCHEST:
         if (do_ident)
-            lprcat("\n\nThere is a chest here");
+            lprcat("\nThere is a chest here");
         if (do_pickup)
             if (take(OCHEST, j) == 0)
                 forget();
@@ -166,7 +191,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nYou have found the College of Larn.");
+            lprcat("\nYou have found the College of Larn.");
         if (do_action)
             prompt_enter();
         break;
@@ -175,7 +200,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nThere is a mirror here");
+            lprcat("\nThere is a mirror here");
         if (do_action)
             omirror();
         break;
@@ -184,7 +209,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nYou have found a branch office of the bank of Larn.");
+            lprcat("\nYou have found a branch office of the bank of Larn.");
         if (do_action)
             prompt_enter();
         break;
@@ -193,7 +218,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nYou have found the bank of Larn.");
+            lprcat("\nYou have found the bank of Larn.");
         if (do_action)
             prompt_enter();
         break;
@@ -202,35 +227,35 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nThere is a dead fountain here");
+            lprcat("\nThere is a dead fountain here");
         break;
 
     case ODNDSTORE:
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nThere is a DND store here.");
+            lprcat("\nThere is a DND store here.");
         if (do_action)
             prompt_enter();
         break;
 
     case OSTAIRSDOWN:   /* down */
         if (do_ident)
-            lprcat("\n\nThere is a circular staircase here");
+            lprcat("\nThere is a circular staircase here");
         if (do_action)
             ostairs(-1);
         break;
 
     case OOPENDOOR:
         if (do_ident)
-            lprintf("\n\nYou have found %s", objectname[i]);
+            lprintf("\nYou have found %s", objectname[i]);
         if (do_action)
             o_open_door();
         break;
 
     case OCLOSEDDOOR:
         if (do_ident)
-            lprintf("\n\nYou have found %s", objectname[i]);
+            lprintf("\nYou have found %s", objectname[i]);
         if (do_action)
             o_closed_door();
         break;
@@ -268,7 +293,6 @@ lookforobject(do_ident, do_pickup, do_action)
 
     case OTELEPORTER:
         lprcat("\nZaaaappp!  You've been teleported!\n");
-        beep();
         nap(3000);
         oteleport(0);
         break;
@@ -282,7 +306,6 @@ lookforobject(do_ident, do_pickup, do_action)
 
     case OTRAPARROW:
         lprcat("\nYou are hit by an arrow");
-        beep();
         lastnum = 259;
         losehp(rnd(10) + level);
         bottomhp();
@@ -297,7 +320,6 @@ lookforobject(do_ident, do_pickup, do_action)
 
     case ODARTRAP:
         lprcat("\nYou are hit by a dart");
-        beep();     /* for a dart trap */
         lastnum = 260;
         losehp(rnd(5));
         if ((--c[STRENGTH]) < 3)
@@ -317,13 +339,11 @@ lookforobject(do_ident, do_pickup, do_action)
         if ((level == MAXLEVEL - 1) || (level == MAXLEVEL + MAXVLEVEL - 1))
         {
             lprcat("\nYou fell through a bottomless trap door!");
-            beep();
             nap(3000);
             died(271);
         }
         i = rnd(5 + level);
         lprintf("\nYou fall through a trap door!  You lose %d hit points.", (long) i);
-        beep();
         losehp(i);
         nap(2000);
         newcavelevel(level + 1);
@@ -360,7 +380,7 @@ lookforobject(do_ident, do_pickup, do_action)
         if (nearbymonst())
             return;
         if (do_ident)
-            lprcat("\n\nThere is an LRS office here.");
+            lprcat("\nThere is an LRS office here.");
         if (do_action)
             prompt_enter();
         break;
@@ -368,7 +388,7 @@ lookforobject(do_ident, do_pickup, do_action)
     default:
         if (do_ident)
         {
-            lprintf("\n\nYou have found %s ", objectname[i]);
+            lprintf("\nYou have found %s ", objectname[i]);
             switch (i)
             {
             case ODIAMOND:
@@ -415,13 +435,13 @@ lookforobject(do_ident, do_pickup, do_action)
 }
 
 
+
 /*
  * subroutine to process the stair cases if dir > 0 the up else down 
  */
-static ostairs(dir)
-    int             dir;
+static void ostairs(int dir)
 {
-    register int    k;
+
     lprcat("\nDo you (s) stay here ");
     if (dir > 0)
         lprcat("or (u) go up? ");
@@ -454,10 +474,10 @@ static ostairs(dir)
 /*
  * subroutine to handle a teleport trap +/- 1 level maximum 
  */
-oteleport(err)
-    int             err;
+void oteleport(int err)
 {
-    register int    tmp;
+	int tmp;
+
     if (err)
         if (rnd(151) < 3)
             died(264);  /* stuck in a rock */
@@ -490,14 +510,16 @@ oteleport(err)
 }
 
 
+
 /*
  * function to process a potion 
  */
-static opotion(pot)
-    int             pot;
+static void opotion(int pot)
 {
+
     lprcat("\nDo you (d) drink it, (t) take it");
     iopts();
+	
     while (1)
         switch (ttgetch())
         {
@@ -520,17 +542,17 @@ static opotion(pot)
         };
 }
 
+
+
 /*
  * function to drink a potion 
  *
  * Also used to perform the action of a potion without quaffing a potion (see
  * invisible capability when drinking from a fountain). 
  */
-quaffpotion(pot, set_known)
-    int             pot;
-    int             set_known;
+void quaffpotion(int pot, int set_known)
 {
-    register int    i, j, k;
+	int i, j, k;
 
     /* check for within bounds */
     if (pot < 0 || pot >= MAXPOTION)
@@ -770,11 +792,11 @@ quaffpotion(pot, set_known)
 }
 
 
+
 /*
  * function to process a magic scroll 
  */
-static oscroll(typ)
-    int             typ;
+static void oscroll(int typ)
 {
     lprcat("\nDo you ");
     if (c[BLINDCOUNT] == 0)
@@ -810,43 +832,53 @@ static oscroll(typ)
         };
 }
 
+
+
+
+
 /*
  * data for the function to read a scroll 
  */
 static int   xh, yh, yl, xl;
-static char  curse[] = {BLINDCOUNT, CONFUSE, AGGRAVATE, HASTEMONST, ITCHING,
+static signed char  curse[] = {BLINDCOUNT, CONFUSE, AGGRAVATE, HASTEMONST, ITCHING,
                         LAUGHING, DRAINSTRENGTH, CLUMSINESS, INFEEBLEMENT, 
                         HALFDAM};
-static char  exten[] = {PROTECTIONTIME, DEXCOUNT, STRCOUNT, CHARMCOUNT,
+static signed char  exten[] = {PROTECTIONTIME, DEXCOUNT, STRCOUNT, CHARMCOUNT,
                         INVISIBILITY, CANCELLATION, HASTESELF, GLOBE,
                         SCAREMONST, HOLDMONST, TIMESTOP};
-static char  time_change[] = {HASTESELF, HERO, ALTPRO, PROTECTIONTIME, DEXCOUNT,
+static signed char  time_change[] = {HASTESELF, HERO, ALTPRO, PROTECTIONTIME, DEXCOUNT,
                               STRCOUNT, GIANTSTR, CHARMCOUNT, INVISIBILITY,
                               CANCELLATION,HASTESELF, AGGRAVATE, SCAREMONST,
                               STEALTH, AWARENESS, HOLDMONST, HASTEMONST,
                               FIRERESISTANCE, GLOBE, SPIRITPRO, UNDEADPRO,
                               HALFDAM, SEEINVISIBLE, ITCHING, CLUMSINESS, WTW};
+
+			      
+			      
 /*
  * function to adjust time when time warping and taking courses in school
  */
-adjtime(tim)
-    register long   tim;
+void adjtime(long tim)
 {
-    register int    j;
+	int j;
+
     for (j = 0; j < 26; j++)/* adjust time related parameters */
         if (c[time_change[j]])
             if ((c[time_change[j]] -= tim) < 1)
                 c[time_change[j]] = 1;
+
     regen();
 }
+
+
 
 /*
  * function to read a scroll 
  */
-read_scroll(typ)
-    int             typ;
+void read_scroll(int typ)
 {
-    register int    i, j;
+	int i, j;
+	
     if (typ < 0 || typ >= MAXSCROLL)
         return;     /* be sure we are within bounds */
     scrollname[typ][0] = ' ';
@@ -997,53 +1029,94 @@ read_scroll(typ)
     };
 }
 
-static opit()
+
+
+static void opit(void)
 {
-    register int    i;
-    if (rnd(101) < 81)
-        if (rnd(70) > 9 * c[DEXTERITY] - packweight() || rnd(101) < 5)
-            if (level == MAXLEVEL - 1)
-                obottomless();
-            else
-            if (level == MAXLEVEL + MAXVLEVEL - 1)
-                obottomless();
-            else
-            {
-                if (rnd(101) < 20)
-                {
-                    i = 0;
-                    lprcat("\nYou fell into a pit!  Your fall is cushioned by an unknown force\n");
-                } else
-                {
-                    i = rnd(level * 3 + 3);
-                    lprintf("\nYou fell into a pit!  You suffer %d hit points damage", (long) i);
-                    lastnum = 261;  /* if he dies scoreboard
-                             * will say so */
-                }
-                losehp(i);
-                nap(2000);
-                newcavelevel(level + 1);
-                draws(0, MAXX, 0, MAXY);
-            }
+	int i;
+	
+	if (rnd(101) >= 81) {
+		
+		return;
+	}
+	
+	if (rnd(70) <= 9 * c[DEXTERITY] - packweight() || 
+		rnd(101) >= 5) {
+	
+		return;
+	}
+	
+	if (level == MAXLEVEL - 1) {
+		
+		obottomless();
+		
+	} else if (level == MAXLEVEL + MAXVLEVEL - 1) {
+		
+		obottomless();
+	
+	} else {
+		
+		if (rnd(101) < 20) {
+			
+			i = 0;
+			
+			lprcat(
+				"\nYou fell into a pit!  "
+				"Your fall is cushioned by an unknown force\n"
+			);
+
+		} else {
+			
+			i = rnd(level * 3 + 3);
+			
+			lprintf(
+				"\nYou fell into a pit!  "
+				"You suffer %d hit points damage", 
+				(long) i
+			);
+			
+			/* if he dies scoreboard will say so */
+			lastnum = 261; 
+		}
+		
+		losehp(i);
+		
+		nap(2000);
+		
+		newcavelevel(level + 1);
+		
+		draws(0, MAXX, 0, MAXY);
+	}
 }
 
-static obottomless()
+
+
+static void obottomless(void)
 {
-    lprcat("\nYou fell into a bottomless pit!");
-    beep();
-    nap(3000);
-    died(262);
+
+	lprcat("\nYou fell into a bottomless pit!");
+	nap(3000);
+	died(262);
 }
 
-static ostatue()
+
+
+static void ostatue(void)
 {
+
 }
 
-static omirror()
+
+
+static void omirror(void)
 {
+
+	
 }
 
-static obook()
+
+
+static void obook(void)
 {
     lprcat("\nDo you ");
     if (c[BLINDCOUNT] == 0)
@@ -1074,30 +1147,49 @@ static obook()
         };
 }
 
+
+
 /*
  * function to read a book 
  */
-readbook(lev)
-    register int    lev;
+void readbook(int lev)
 {
-    register int    i, tmp;
-    if (lev <= 3)
-        i = rund((tmp = splev[lev]) ? tmp : 1);
-    else
-        i = rnd((tmp = splev[lev] - 9) ? tmp : 1) + 9;
-    spelknow[i] = 1;
-    lprintf("\nSpell \"%s\":  %s\n%s", spelcode[i], spelname[i], speldescript[i]);
-    if (rnd(10) == 4)
-    {
-        lprcat("\nYour int went up by one!");
-        c[INTELLIGENCE]++;
-        bottomline();
-    }
+	int i, tmp;
+	
+	if (lev <= 3) {
+		
+		tmp = splev[lev];		
+		if (tmp == 0) tmp = 1;
+
+		i = rund(tmp);
+		
+	} else {
+		
+		tmp = splev[lev] - 9;		
+		if (tmp == 0) tmp = 1;
+
+		i = rnd(tmp + 9);
+	}
+	
+	spelknow[i] = 1;
+	
+	lprintf("\nSpell \"%s\":  %s\n%s", spelcode[i], spelname[i], 
+		speldescript[i]
+	);
+	
+	if (rnd(10) == 4) {
+		
+		lprcat("\nYour int went up by one!");
+		c[INTELLIGENCE]++;
+		bottomline();
+	}
 }
 
-static ocookie()
+
+
+static void ocookie(void)
 {
-    char           *p;
+
     lprcat("\nDo you (e) eat it, (t) take it");
     iopts();
     while (1)
@@ -1122,14 +1214,16 @@ static ocookie()
         };
 }
 
+
+
 /*
  * routine to pick up some gold -- if arg==OMAXGOLD then the pile is worth
  * 100* the argument
  */
-static ogold(arg)
-    int             arg;
+static void ogold(int arg)
 {
-    register long   i;
+	long i;
+
     i = iarg[playerx][playery];
     if (arg == OMAXGOLD)
         i *= 100;
@@ -1145,10 +1239,13 @@ static ogold(arg)
     item[playerx][playery] = know[playerx][playery] = 0;    /* destroy gold    */
 }
 
-ohome()
+
+
+void ohome(void)
 {
-    register int    i;
-    nosignal = 1;       /* disable signals */
+	int i;
+	
+
     for (i = 0; i < 26; i++)
         if (iven[i] == OPOTION)
             if (ivenarg[i] == 21)
@@ -1174,7 +1271,6 @@ ohome()
                     nap(3000);
                     lprcat(" working!  The doctor thinks that\n");
                     lprcat("your daughter will recover in a few days.  Congratulations!\n");
-                    beep();
                     nap(5000);
                     died(263);
                 }
@@ -1197,9 +1293,9 @@ ohome()
         lprcat("potion of cure dianthroritis.  It is rumored that only deep in the\n");
         lprcat("depths of the caves can this potion be found.\n\n\n");
         lprcat("\n     ----- press ");
-        standout("return");
+        lstandout("return");
         lprcat(" to continue, ");
-        standout("escape");
+        lstandout("escape");
         lprcat(" to leave ----- ");
         i = ttgetch();
         while (i != '\33' && i != '\n')
@@ -1207,28 +1303,37 @@ ohome()
         if (i == '\33')
         {
             drawscreen();
-            nosignal = 0;   /* enable signals */
             return;
         }
     }
 }
 
+
+
 /* routine to save program space   */
-iopts()
+void iopts(void)
 {
+	
     lprcat(", or (i) ignore it? ");
 }
-ignore()
+
+
+void ignore(void)
 {
+
     lprcat("ignore\n");
 }
+
+
+
+
 
 /*
  * For prompt mode, prompt for entering a building.
  */
-static prompt_enter()
+static void prompt_enter(void)
 {
-    char            i;
+	char i;
 
     lprcat("\nDo you (g) go inside, or (i) stay here? ");
     i = 0;
@@ -1240,16 +1345,19 @@ static prompt_enter()
         lprcat(" stay here");
 }
 
+
+
+
+
 /*
  * For prompt mode, prompt for climbing up/down the volcanic shaft. 
  *
  * Takes one parameter: if it is negative, going down the shaft, otherwise,
  * going up the shaft. 
  */
-static prompt_volshaft(dir)
-    int             dir;
+static void prompt_volshaft(int dir)
 {
-    char            i;
+	char i;
 
     lprcat("\nDo you (c) climb ");
     if (dir > 0)
@@ -1273,9 +1381,13 @@ static prompt_volshaft(dir)
         act_down_shaft();
 }
 
-static o_open_door()
+
+
+
+static void o_open_door(void)
 {
-    char            i;
+	char i;
+	
     lprcat("\nDo you (c) close it");
     iopts();
     i = 0;
@@ -1294,9 +1406,12 @@ static o_open_door()
     playery = lastpy;
 }
 
-static o_closed_door()
+
+
+static void o_closed_door(void)
 {
-    char            i;
+	char i;
+
     lprcat("\nDo you (o) try to open it");
     iopts();
     i = 0;

@@ -8,21 +8,19 @@
  *  move_dumb()     Move dumb monsters
  *  mmove(x,y,xd,yd)    Function to actually perform the monster movement
  */
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
+#include <stdlib.h>
 
-#define min(x,y) (((x)>(y))?(y):(x))
-#define max(x,y) (((x)>(y))?(x):(y))
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
-       void movemonst();
-static void build_proximity_ripple();
-static void move_scared();
-static void move_smart();
-static void move_dumb();
-static void mmove();
+
+static void build_proximity_ripple(void);
+static void move_scared(int, int);
+static void move_smart(int, int);
+static void move_dumb(int, int);
+static void mmove(int, int, int, int);
+
 
 #if 0
 # define IDISTNORM   8  /* was 17 - dgk */
@@ -37,6 +35,8 @@ static int tmp1,tmp2,tmp3,tmp4,distance;
 /* list of monsters to move */
 static struct foo { char x ; char y; char smart; } movelist[250] ;
 
+
+
 /*
  *  movemonst()     Routine to move the monsters toward the player
  *
@@ -44,9 +44,10 @@ static struct foo { char x ; char y; char smart; } movelist[250] ;
  *  move, and call movemt() to do the move.
  *  Returns no value.
  */
-void movemonst()
-    {
-    register int i,j,movecnt=0, smart_count, min_int ;
+void movemonst(void)
+{
+	int i, j, movecnt=0, smart_count, min_int;
+
     if (c[HOLDMONST])  return;  /* no action if monsters are held */
 
     if (c[AGGRAVATE])   /* determine window of monsters to move */
@@ -209,9 +210,12 @@ void movemonst()
             lasthy = w1y[0];
             }
         }
-    }
+}
 
-static char screen[MAXX][MAXY];    /* proximity ripple storage */
+
+
+
+static signed char screen[MAXX][MAXY];    /* proximity ripple storage */
 
 /* queue for breadth-first 'search' build of proximity ripple.
 */
@@ -265,11 +269,11 @@ static int queue_tail = 0 ;
     W 9 9 8 7 7 7    will not move at all.
     W W W 8 W W W
 */
-static void build_proximity_ripple()
-    {
-    int xl, yl, xh, yh ;
-    int k, m, z, tmpx, tmpy;
-    int curx, cury, curdist;
+static void build_proximity_ripple(void)
+{
+	int xl, yl, xh, yh ;
+	int k, m, z, tmpx, tmpy;
+	int curx, cury, curdist;
 
     xl=tmp3-2; yl=tmp1-2; xh=tmp4+2;  yh=tmp2+2;
     vxy(&xl,&yl);  vxy(&xh,&yh);
@@ -311,13 +315,14 @@ static void build_proximity_ripple()
 
       /* test all spots around the current one being looked at.
       */
-      if ( ( curx >= xl && curx < xh ) &&
-           ( cury >= yl && cury < yh ) )
+      if ( ( curx >= xl && curx <= xh ) &&
+           ( cury >= yl && cury <= yh ) )
           {
           for (z=1; z<9; z++)
           {
           tmpx = curx + diroffx[z] ;
           tmpy = cury + diroffy[z] ;
+          vxy( &tmpx, &tmpy );
           if (screen[tmpx][tmpy] == 0 )
               {
               screen[tmpx][tmpy] = curdist + 1;
@@ -327,16 +332,16 @@ static void build_proximity_ripple()
           }
       }
       while (!QUEUEEMPTY());
+}
+    
 
-    }
 
 /*
     Move scared monsters randomly away from the player position.
 */
-static void move_scared( i, j )
-int i, j ;
-    {
-    int xl, yl, tmp, tmpitem ;
+static void move_scared(int i, int j)
+{
+	int xl, yl, tmp;
 
     /* check for a half-speed monster, and check if not to move.  Could be
        done in the monster list build.
@@ -361,7 +366,9 @@ int i, j ;
         if ((mitem[i][j] != VAMPIRE) || (tmp != OMIRROR))
         if (tmp != OCLOSEDDOOR)
             mmove(i,j,xl,yl);
-    }
+}
+
+    
 
 /*
     Move monsters that are moving intelligently, using the proximity
@@ -370,10 +377,9 @@ int i, j ;
 
     Parameters: the X,Y position of the monster to be moved.
 */
-static void move_smart( i, j )
-int i,j ;
-    {
-    int x,y,z ;
+static void move_smart(int i, int j)
+{
+	int x, y, z ;
 
     /* check for a half-speed monster, and check if not to move.  Could be
        done in the monster list build.
@@ -416,7 +422,10 @@ int i,j ;
             }
         }
 
-    }
+}
+
+
+    
 
 /*
    For monsters that are not moving in an intelligent fashion.  Move
@@ -424,9 +433,8 @@ int i,j ;
 
    Parameters: the X,Y position of the monster to move.
 */
-static void move_dumb( i, j )
-int i, j ;
-    {
+static void move_dumb(int i, int j)
+{
     int xl, yl, xh, yh ;
     int k, m, tmp, tmpd, tmpx, tmpy ;
 
@@ -448,6 +456,11 @@ int i, j ;
     xl=i-1;  yl=j-1;  xh=i+2;  yh=j+2;
     if (i<playerx) xl++; else if (i>playerx) --xh;
     if (j<playery) yl++; else if (j>playery) --yh;
+
+    if (xl < 0) xl = 0;
+    if (yl < 0) yl = 0;
+    if (xh > MAXX) xh = MAXX; /* MAXX OK; loop check below is <, not <= */
+    if (yh > MAXY) yh = MAXY; /* MAXY OK; loop check below is <, not <= */
 
     /* check all spots in the range.  find the one that is closest to
        the player.  if the monster is already next to the player, exit
@@ -493,7 +506,10 @@ int i, j ;
     w1x[0] = i ;              /* for last monster hit */
     w1y[0] = j ;
     }
-    }  /* end move_dumb() */
+}  /* end move_dumb() */
+
+    
+
 
 /*
  *  mmove(x,y,xd,yd)    Function to actually perform the monster movement
@@ -502,11 +518,11 @@ int i, j ;
  *  Enter with the from coordinates in (x,y) and the destination coordinates
  *  in (xd,yd).
  */
-static void mmove(aa,bb,cc,dd)
-    int aa,bb,cc,dd;
-    {
-    register int tmp,i,flag;
-    char *who,*p;
+static void mmove(int aa, int bb, int cc, int dd)
+{
+	int tmp,i,flag;
+	char *who,*p;
+
     flag=0; /* set to 1 if monster hit by arrow trap */
     if ((cc==playerx) && (dd==playery))
         {
@@ -572,9 +588,11 @@ static void mmove(aa,bb,cc,dd)
           case 2: p="\n%s hits and kills the %s";  break;
           case 3: p="\nThe %s%s gets teleported"; who="";  break;
           };
-        if (p) { lprintf(p,who,monster[tmp].name); beep(); }
+        if (p) { lprintf(p,who,monster[tmp].name); }
         }
 /*  if (yrepcount>1) { know[aa][bb] &= 2;  know[cc][dd] &= 2; return; } */
     if (know[aa][bb] & HAVESEEN)   show1cell(aa,bb);
     if (know[cc][dd] & HAVESEEN)   show1cell(cc,dd);
-    }
+}
+
+

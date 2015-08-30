@@ -41,17 +41,24 @@
  *      int x;
  *
  */
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
+#include <stdlib.h>
+#include <ctype.h> 
+ 
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
-#include <ctype.h>
-#define min(x,y) (((x)>(y))?(y):(x))
-#define max(x,y) (((x)>(y))?(x):(y))
 
-extern fullhit(), ifblind();
+static int	cgood(int, int, int, int);
+
+static void	dropsomething(int);
+
+static int	spattack(int, int, int);
+
+
+
+
+
 
 /*
  *  createmonster(monstno)      Function to create a monster next to the player
@@ -60,13 +67,13 @@ extern fullhit(), ifblind();
  *  Enter with the monster number (1 to MAXMONST+8)
  *  Returns no value.
  */
-createmonster(mon)
-    int mon;
-    {
-    register int x,y,k,i;
+void createmonster(int mon)
+{
+	int x, y, k, i;
+
     if (mon<1 || mon>MAXMONST+8)    /* check for monster number out of bounds */
         {
-        beep(); lprintf("\ncan't createmonst(%d)\n",(long)mon); nap(3000); return;
+        lprintf("\ncan't createmonst(%d)\n",(long)mon); nap(3000); return;
         }
     while (monster[mon].genocided && mon<MAXMONST) mon++; /* genocided? */
     for (k=rnd(8), i= -8; i<0; i++,k++) /* choose direction, then try all */
@@ -86,7 +93,9 @@ createmonster(mon)
             return;
             }
         }
-    }
+}
+
+    
 
 /*
  *  int cgood(x,y,itm,monst)      Function to check location for emptiness
@@ -100,50 +109,63 @@ createmonster(mon)
  *  This routine will return FALSE if at a wall,door or the dungeon exit
  *  on level 1
  */
-static int cgood(x,y,itm,monst)
-    register int x,y;
-    int itm,monst;
-    {
-    /* cannot create either monster or item if:
-       - out of bounds
-       - wall
-       - closed door
-       - dungeon entrance
-    */
-    if (((y < 0) || (y > MAXY-1) || (x < 0) || (x > MAXX-1)) ||
-         (item[x][y] == OWALL) ||
-         (item[x][y] == OCLOSEDDOOR) ||
-         ((level == 1) && (x == 33) && (y == MAXY-1)))
-        return( FALSE );
+static int cgood(int x, int y, int itm, int monst)
+{
 
-    /* if checking for an item, return False if one there already
-    */
-    if ( itm && item[x][y])
-        return( FALSE );
+	/* 
+	 * cannot create either monster or item if:
+	 * - out of bounds
+	 * - wall
+	 * - closed door
+	 * - dungeon entrance
+	 */
+	if (((y < 0) || (y > MAXY-1) || (x < 0) || (x > MAXX-1)) ||
+		(item[x][y] == OWALL) ||
+		(item[x][y] == OCLOSEDDOOR) ||
+		((level == 1) && (x == 33) && (y == MAXY-1))) {
 
-    /* if checking for a monster, return False if one there already _or_
-       there is a pit/trap there.
-    */
-    if (monst)
-        {
-        if (mitem[x][y])
-            return (FALSE);
-        switch(item[x][y])
-            {
-            /* note: not invisible traps, since monsters are not affected
-               by them.
-            */
-            case OPIT:         case OANNIHILATION:
-            case OTELEPORTER:  case OTRAPARROW:
-            case ODARTRAP:    case OTRAPDOOR:
-                return(FALSE);
-                break;
-            default:
-                break;
-            }
+		return FALSE;
+	}
+
+
+	/* if checking for an item, return False if one there already */
+	if (itm && item[x][y]) {
+		
+		return FALSE;
+	}
+
+
+	/* 
+	 * if checking for a monster, return False if one there already _or_
+	 * there is a pit/trap there.
+	 */
+	
+	if (monst) {
+		
+		if (mitem[x][y]) {
+			
+			return FALSE;
+		}
+	
+		/* 
+		 * note: not invisible traps, since monsters are 
+		 * not affected by them. 
+		 */
+		switch(item[x][y]) {
+		case OPIT:
+		case OANNIHILATION:
+		case OTELEPORTER:
+		case OTRAPARROW:
+		case ODARTRAP:
+		case OTRAPDOOR:
+			return FALSE;
+		}
         }
-    return(TRUE);
-    }
+
+	return TRUE;
+}
+
+    
 
 /*
  *  createitem(it,arg)      Routine to place an item next to the player
@@ -152,10 +174,10 @@ static int cgood(x,y,itm,monst)
  *  Enter with the item number and its argument (iven[], ivenarg[])
  *  Returns no value, thus we don't know about createitem() failures.
  */
-createitem(it,arg)
-    int it,arg;
-    {
-    register int x,y,k,i;
+void createitem(int it, int arg)
+{
+	int x, y, k, i;
+
     if (it >= MAXOBJ) return;   /* no such object */
     for (k=rnd(8), i= -8; i<0; i++,k++) /* choose direction, then try all */
         {
@@ -166,7 +188,8 @@ createitem(it,arg)
             item[x][y] = it;  know[x][y]=0;  iarg[x][y]=arg;  return;
             }
         }
-    }
+}
+
 
 
 /*
@@ -179,16 +202,18 @@ createitem(it,arg)
  *  Returns TRUE if it was out of bounds, and the *x & *y in the calling
  *  routine are affected.
  */
-vxy(x,y)
-    int *x,*y;
-    {
-    int flag=0;
+int vxy(int *x, int *y)
+{
+	int flag = 0;
+
     if (*x<0) { *x=0; flag++; }
     if (*y<0) { *y=0; flag++; }
     if (*x>=MAXX) { *x=MAXX-1; flag++; }
     if (*y>=MAXY) { *y=MAXY-1; flag++; }
     return(flag);
-    }
+}
+
+    
 
 /*
  *  hitmonster(x,y)     Function to hit a monster at the designated coordinates
@@ -198,11 +223,10 @@ vxy(x,y)
  *  Enter with the coordinates of the monster in (x,y).
  *  Returns no value.
  */
-hitmonster(x,y)
-    int x,y;
-    {
-    extern char lastmonst[] ;
-    register int tmp,monst,damag,flag;
+void hitmonster(int x, int y)
+{
+	int tmp, monst, damag, flag;
+	
     if (c[TIMESTOP])  return;  /* not if time stopped */
     vxy(&x,&y); /* verify coordinates are within range */
     if ((monst = mitem[x][y]) == 0) return;
@@ -225,7 +249,7 @@ hitmonster(x,y)
         if (c[WIELD]>=0)
           if (ivenarg[c[WIELD]] > -10)
             {
-            lprintf("\nYour weapon is dulled by the %s",lastmonst); beep();
+            lprintf("\nYour weapon is dulled by the %s",lastmonst);
             --ivenarg[c[WIELD]];
 
             /* fix for dulled rings of strength,cleverness, and dexterity
@@ -246,7 +270,10 @@ hitmonster(x,y)
             }
     if (flag)  hitm(x,y,damag);
     if (monst == VAMPIRE) if (hitp[x][y]<25)  { mitem[x][y]=BAT; know[x][y]=0; }
-    }
+}
+
+    
+    
 
 /*
  *  hitm(x,y,amt)       Function to just hit a monster at a given coordinates
@@ -256,13 +283,11 @@ hitmonster(x,y)
  *  This routine is used to specifically damage a monster at a location (x,y)
  *  Called by hitmonster(x,y)
  */
-hitm(x,y,amt)
-    int x,y;
-    register amt;
-    {
-    extern char lastmonst[] ;
-    register int monst;
-    int hpoints,amt2;
+int hitm(int x, int y, int amt)
+{
+	int monst;
+	int hpoints, amt2;
+
     vxy(&x,&y); /* verify coordinates are within range */
     amt2 = amt;     /* save initial damage so we can return it */
     monst = mitem[x][y];
@@ -292,7 +317,8 @@ hitm(x,y,amt)
         return(hpoints);
         }
     hitp[x][y] = hpoints-amt;   return(amt2);
-    }
+}
+
 
 /*
  *  hitplayer(x,y)      Function for the monster to hit the player from (x,y)
@@ -301,11 +327,10 @@ hitm(x,y,amt)
  *  Function for the monster to hit the player with monster at location x,y
  *  Returns nothing of value.
  */
-hitplayer(x,y)
-    int x,y;
-    {
-    extern char lastmonst[] ;
-    register int dam,tmp,mster,bias;
+void hitplayer(int x, int y)
+{
+	int dam, tmp, mster, bias;
+
     vxy(&x,&y); /* verify coordinates are within range */
     lastnum = mster = mitem[x][y];
 /*  spirit naga's and poltergeist's do nothing if scarab of negate spirit   */
@@ -345,8 +370,10 @@ hitplayer(x,y)
         if (dam > 0) { losehp(dam); bottomhp(); lflushall(); }
         }
     if (tmp == 0)  lprintf("\n  The %s missed ",lastmonst);
-    }
+}
 
+    
+    
 /*
  *  dropsomething(monst)    Function to create an object when a monster dies
  *      int monst;
@@ -355,9 +382,9 @@ hitplayer(x,y)
  *  Enter with the monster number
  *  Returns nothing of value.
  */
-static dropsomething(monst)
-    int monst;
-    {
+static void dropsomething(int monst)
+{
+
     switch(monst)
         {
         case ORC:             case NYMPH:      case ELF:      case TROGLODYTE:
@@ -368,7 +395,10 @@ static dropsomething(monst)
         case LEPRECHAUN: if (rnd(101)>=75) creategem();
                          if (rnd(5)==1) dropsomething(LEPRECHAUN);   return;
         }
-    }
+}
+    
+
+    
 
 /*
  *  dropgold(amount)    Function to drop some gold around player
@@ -377,14 +407,16 @@ static dropsomething(monst)
  *  Enter with the number of gold pieces to drop
  *  Returns nothing of value.
  */
-dropgold(amount)
-    register int amount;
-    {
+void dropgold(int amount)
+{
+	
     if (amount > 250) 
         createitem(OMAXGOLD,amount/100);  
     else  
         createitem(OGOLDPILE,amount);
-    }
+}
+
+    
 
 /*
  *  something(level)    Function to create a random item around player
@@ -394,17 +426,19 @@ dropgold(amount)
  *  Enter with the cave level on which something is to be dropped
  *  Returns nothing of value.
  */
-something(level)
-    int level;
-    {
-    register int j;
-    int i;
+void something(int level)
+{
+	int j;
+	int i;
+
     if (level<0 || level>MAXLEVEL+MAXVLEVEL) return;    /* correct level? */
     if (rnd(101)<8)
         something(level); /* possibly more than one item */
     j = newobject(level,&i);
     createitem(j,i);
-    }
+}
+
+
 
 /*
  *  newobject(lev,i)    Routine to return a randomly selected new object
@@ -414,17 +448,18 @@ something(level)
  *  Returns the object number created, and sets *i for its argument
  *  Enter with the cave level and a pointer to the items arg
  */
-static char nobjtab[] = { 0, OSCROLL,  OSCROLL,  OSCROLL,  OSCROLL, OPOTION,
+static signed char nobjtab[] = { 0, OSCROLL,  OSCROLL,  OSCROLL,  OSCROLL, OPOTION,
     OPOTION, OPOTION, OPOTION, OGOLDPILE, OGOLDPILE, OGOLDPILE, OGOLDPILE,
     OBOOK, OBOOK, OBOOK, OBOOK, ODAGGER, ODAGGER, ODAGGER, OLEATHER, OLEATHER,
     OLEATHER, OREGENRING, OPROTRING, OENERGYRING, ODEXRING, OSTRRING, OSPEAR,
     OBELT, ORING, OSTUDLEATHER, OSHIELD, OCOOKIE, OFLAIL, OCHAIN, OBATTLEAXE,
     OSPLINT, O2SWORD, OCLEVERRING, OPLATE, OLONGSWORD };
+    
 
-newobject(lev,i)
-    register int lev,*i;
-    {
-    register int tmp=33,j;
+int newobject(int lev, int *i)
+{
+	int tmp=33, j;
+
     if (level<0 || level>MAXLEVEL+MAXVLEVEL) return(0); /* correct level? */
     if (lev>6) tmp=41; else if (lev>4) tmp=39;
     j = nobjtab[tmp=rnd(tmp)];  /* the object type */
@@ -466,7 +501,9 @@ newobject(lev,i)
             *i=newsword();     break;
         }
     return(j);
-    }
+}
+    
+
 
 /*
  *  spattack(atckno,xx,yy)  Function to process special attacks from monsters
@@ -501,29 +538,44 @@ newobject(lev,i)
  *  format is: { armor type , minimum attribute 
  */
 #define ARMORTYPES 6
-#if __STDC__
-static signed char rustarm[ARMORTYPES][2] =
-#else
-static char rustarm[ARMORTYPES][2] =
-#endif
-    { OSTUDLEATHER,-2, ORING,      -4,
-      OCHAIN,      -5, OSPLINT,    -6,
-      OPLATE,      -8, OPLATEARMOR,-9  };
+static signed char rustarm[ARMORTYPES][2] = {
+	
+	{OSTUDLEATHER,	-2},
+	{ORING,		-4},
+	{OCHAIN,	-5}, 
+	{OSPLINT,	-6},
+	{OPLATE,	-8},
+	{OPLATEARMOR,	-9}
+	
+};
+      
+      
+      
 static char spsel[] = { 1, 2, 3, 5, 6, 8, 9, 11, 13, 14 };
-static spattack(x,xx,yy)
-    int x,xx,yy;
-    {
-    extern char lastmonst[] ;
-    register int i,j=0,k,m;
-    register char *p=0;
+
+static int spattack(int x, int xx, int yy)
+{
+	int i, j=0, k, m;
+	char *p = 0;
+
     if (c[CANCELLATION]) return(0);
     vxy(&xx,&yy);   /* verify x & y coordinates */
     switch(x)
         {
         case 1: /* rust your armor, j=1 when rusting has occurred */
                 m = k = c[WEAR];
-                if ((i=c[SHIELD]) != -1)
-                    if (--ivenarg[i] < -1) ivenarg[i]= -1; else j=1;
+	
+		i = c[SHIELD];
+	
+                if (i != -1) {
+
+                    if (--ivenarg[i] < -1) {
+			    ivenarg[i]= -1;
+		    } else {
+			    j=1;
+		    }
+		}
+			    
                 if ((j==0) && (k != -1))
                   {
                   m = iven[k];
@@ -543,7 +595,7 @@ static spattack(x,xx,yy)
                     case OSSPLATE:  p = "\nThe %s hit you -- Your fortunate to have stainless steel armor!";
                                     break;
                     }
-                else  { beep(); p = "\nThe %s hit you -- your armor feels weaker"; }
+                else  { p = "\nThe %s hit you -- your armor feels weaker"; }
                 break;
 
         case 2:     i = rnd(15)+8-c[AC];
@@ -551,7 +603,7 @@ static spattack(x,xx,yy)
                     if (c[FIRERESISTANCE])
                       p="\nThe %s's flame doesn't phase you!";
                     else
-            spout2: if (p) { lprintf(p,lastmonst); beep(); }
+            spout2: if (p) { lprintf(p,lastmonst); }
                     checkloss(i);
                     return(0);
 
@@ -559,7 +611,7 @@ static spattack(x,xx,yy)
 
         case 4: if (c[STRENGTH]>3)
                     {
-                    p="\nThe %s stung you!  You feel weaker"; beep();
+                    p="\nThe %s stung you!  You feel weaker";
                     --c[STRENGTH];
                     }
                 else p="\nThe %s stung you!";
@@ -569,7 +621,7 @@ static spattack(x,xx,yy)
                     i = rnd(15)+18-c[AC];  goto spout2;
 
         case 6:     lprintf("\nThe %s drains you of your life energy!",lastmonst);
-                    loselevel();  beep();  return(0);
+                    loselevel();  return(0);
 
         case 7:     p="\nThe %s got you with a gusher!";
                     i = rnd(15)+25-c[AC];  goto spout2;
@@ -583,7 +635,7 @@ static spattack(x,xx,yy)
                         if (c[GOLD] < 0) c[GOLD]=0;
                         }
                     else  p="\nThe %s couldn't find any gold to steal";
-                    lprintf(p,lastmonst); disappear(xx,yy); beep();
+                    lprintf(p,lastmonst); disappear(xx,yy);
                     bottomgold();  return(1);
 
         case 9: for(j=50; ; )   /* disenchant */
@@ -593,7 +645,7 @@ static spattack(x,xx,yy)
                         {
                         if ((ivenarg[i] -= 3)<0) ivenarg[i]=0;
                         lprintf("\nThe %s hits you -- you feel a sense of loss",lastmonst);
-                        beep(); show3(i);  bottomline();  return(0);
+                        show3(i);  bottomline();  return(0);
                         }
                     if (--j<=0)
                         {
@@ -606,7 +658,7 @@ static spattack(x,xx,yy)
         case 10:   p="\nThe %s hit you with his barbed tail";
                    i = rnd(25)-c[AC];  goto spout2;
 
-        case 11:    p="\nThe %s has confused you"; beep();
+        case 11:    p="\nThe %s has confused you"; 
                     c[CONFUSE]+= 10+rnd(10);        break;
 
         case 12:    /*  performs any number of other special attacks    */
@@ -622,7 +674,6 @@ static spattack(x,xx,yy)
                       break;
                       }
                     lprintf("\nThe %s picks your pocket and takes:",lastmonst);
-                    beep();
                     if (stealsomething()==0) lprcat("  nothing"); disappear(xx,yy);
                     bottomline();  return(1);
 
@@ -633,8 +684,11 @@ static spattack(x,xx,yy)
         case 16:    i= rnd(15)+10-c[AC];  goto spout3;
         };
     if (p) { lprintf(p,lastmonst); bottomline(); }
+
     return(0);
-    }
+}
+
+
 
 /*
  *  checkloss(x)    Routine to subtract hp from user and flag bottomline display
@@ -644,8 +698,13 @@ static spattack(x,xx,yy)
  *  Enter with the number of hit points to lose
  *  Note: if x > c[HP] this routine could kill the player!
  */
-checkloss(x)
-    int x;
-    {
-    if (x>0) { losehp(x);  bottomhp(); }
-    }
+void checkloss(int x)
+{
+
+	if (x > 0) {
+		
+		losehp(x);
+		bottomhp();
+	}
+}
+

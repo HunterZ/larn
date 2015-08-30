@@ -1,28 +1,17 @@
 /* diag.c */
-#ifdef VMS
-# include <types.h>
-# include <stat.h>
-#else
-# include <sys/types.h>
-# include <sys/stat.h>
-#endif VMS
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <time.h>
 
-#ifndef MSDOS
-# ifndef VMS
-#  include <sys/times.h>
-  static struct tms cputime;
-# endif VMS
-#endif MSDOS
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
+static void	greedy(void);
+static void	fsorry(void);
+static void	fcheat(void);
 
-extern long int initialtime;
-extern int rmst,maxitm,lasttime;
-extern char nosignal;
 
 /*
     ***************************
@@ -33,10 +22,12 @@ extern char nosignal;
  */
 #ifdef EXTRA
 static int rndcount[16];
-diag()
-    {
-    register int i,j;
-    int hit,dam;
+
+int diag(void)
+{
+	int i, j;
+	int hit, dam;
+
     cursors();  lwclose();
     if (lcreat(diagfile) < 0)   /*  open the diagnostic file    */
         {
@@ -123,29 +114,15 @@ diag()
     lprcat("\n\n");         lwclose();
     lcreat((char*)0);       lprcat("Done Diagnosing . . .");
     return(0);
-    }
-/*
-    subroutine to count the number of occurrences of an object
- */
-dcount(l)
-    int l;
-    {
-    register int i,j,p;
-    int k;
-    k=0;
-    for (i=0; i<MAXX; i++)
-        for (j=0; j<MAXY; j++)
-            for (p=0; p<MAXLEVEL; p++)
-                if (cell[(long) p*MAXX*MAXY+i*MAXY+j].item == l) k++;
-    return(k);
-    }
+}
+
 
 /*
     subroutine to draw the whole screen as the player knows it
  */
-diagdrawscreen()
-    {
-    register int i,j,k;
+void diagdrawscreen(void)
+{
+    int i, j, k;
 
     for (i=0; i<MAXY; i++)
 
@@ -155,141 +132,84 @@ diagdrawscreen()
                                 lprc(objnamelist[item[j][i]]);
         lprc('\n');
         }
-    }
+}
 #endif
-
+
 /*
     to save the game in a file
  */
 static long int zzz=0;
-savegame(fname)
-    char *fname;
-    {
-    extern char lastmonst[], course[];
-    register int i,k;
-    register struct sphere *sp;
-    struct stat statbuf;
-# ifdef MSDOS
-    struct  cel buf[MAXX];
-    RAMBLOCK    *rp;
-    DISKBLOCK   *dp;
-# endif
 
-    nosignal=1;  lflush();  savelevel();
+int savegame(char *fname)
+{
+	int i,k;
+	struct sphere *sp;
+
+lflush();  savelevel();
     ointerest();
     if (lcreat(fname) < 0)
         {
         lcreat((char*)0); lprintf("\nCan't open file <%s> to save game\n",fname);
-        nosignal=0;  return(-1);
+        return(-1);
         }
 
     set_score_output();
 
-# ifdef MSDOS
-    lwrite((char*)beenhere,MAXLEVEL+MAXVLEVEL);
-
-    /* Some levels may be out on disk, some are in memory.
-     */
-    for (k = 0; k < MAXLEVEL + MAXVLEVEL; k++)
-        if (beenhere[k]) {
-
-            /* Is the level in memory already ?
-             */
-            for (rp = ramblks; rp; rp = rp->next)
-                if (rp->level == k)
-                    break;
-            if (rp != NULL) {
-                lwrite((char *) &rp->gtime, sizeof (long));
-                warn(" %d", k);
-# ifdef ndef
-                warn("From memory\n", k);
-# endif
-                lwrite((char *) rp->cell, sizeof rp->cell);
-                continue;
-            }
-
-            /* Is it on disk ?
-             */
-            for (dp = diskblks; dp; dp = dp->next)
-                if (dp->level == k)
-                    break;
-
-            if (dp == NULL) {
-                levelinfo();
-                error("Level %d is neither in memory nor on disk\n", k);
-            }
-
-            /* Copy the contents of the SWAPFILE */
-            lwrite((char *) &dp->gtime, sizeof (long));
-# ifdef ndef
-            warn("From swap file...\n", k);
-# endif
-            warn(" %ds", k);
-            if (lseek(swapfd, dp->fpos, 0) < 0) {
-                warn("Can't seek to %ld\n", dp->fpos);
-                return -1;
-            }
-            for (i = 0; i < MAXY; i++) {
-# ifdef ndef
-                warn("Copying swap file...\n");
-# endif
-                if (vread(swapfd, (char *) buf, sizeof buf) !=
-                    sizeof buf) {
-                    warn("Swap file short!\n");
-                    return -1;
-                }
-                lwrite((char *) buf, sizeof buf);
-            }
-        }
-# else
     lwrite((char*)beenhere,MAXLEVEL+MAXVLEVEL);
     for (k=0; k<MAXLEVEL+MAXVLEVEL; k++)
         if (beenhere[k])
             lwrite((char*)&cell[(long) k*MAXX*MAXY],sizeof(struct cel)*MAXY*MAXX);
-# endif
-#ifndef VMS
-# ifndef MSDOS
-    times(&cputime);    /* get cpu time */
-    c[CPUTIME] += (cputime.tms_utime+cputime.tms_stime)/60;
-# endif MSDOS
-#endif VMS
+
     lwrite((char*)&c[0],100*sizeof(long));
-    lprint((long)gtime);        lprc(level);
-    lprc(playerx);      lprc(playery);
+    lprint((long)gtime);
+lprc(level);
+    lprc(playerx);
+lprc(playery);
+	    
     lwrite((char*)iven,26); lwrite((char*)ivenarg,26*sizeof(short));
-    for (k=0; k<MAXSCROLL; k++)  lprc(scrollname[k][0]);
-    for (k=0; k<MAXPOTION; k++)  lprc(potionname[k][0]);
-    lwrite((char*)spelknow,SPNUM);       lprc(wizard);
+    
+    for (k=0; k<MAXSCROLL; k++) {
+	    
+	    lprc(scrollname[k][0]);
+    }
+    
+    for (k=0; k<MAXPOTION; k++)  {
+	    
+	    lprc(potionname[k][0]);
+    }
+
+    lwrite((char*)spelknow,SPNUM);
+    
+    lprc(wizard);
+    
     lprc(rmst);     /*  random monster generation counter */
-    for (i=0; i<90; i++)    lprc(itm[i].qty);
+    
+    for (i = 0; i < 90; i++) {
+	    
+	    lprc(dnd_item[i].qty);
+    }
+	    
     lwrite((char*)course,25);           lprc(cheat);        lprc(VERSION);
     for (i=0; i<MAXMONST; i++) lprc(monster[i].genocided); /* genocide info */
     for (sp=spheres; sp; sp=sp->p)
         lwrite((char*)sp,sizeof(struct sphere));    /* save spheres of annihilation */
     time(&zzz);         lprint((long)(zzz-initialtime));
     lwrite((char*)&zzz,sizeof(long));
-# ifndef MSDOS
-    if (fstat(lfd,&statbuf)< 0) lprint(0L);
-    else lprint((long)statbuf.st_ino); /* inode # */
-# endif
 
     lwclose();  lastmonst[0] = 0;
-#ifndef VT100
+    
     setscroll();
-#endif VT100
-    lcreat((char*)0);  nosignal=0;
-    return(0);
-    }
 
-restoregame(fname)
-    char *fname;
-    {
-    register int i,k;
-    register struct sphere *sp,*sp2;
-    struct stat filetimes;
-# ifdef MSDOS
-    RAMBLOCK    *rp, *getramblk();
-# endif
+    lcreat((char*)0);
+    return(0);
+}
+
+    
+void restoregame(char *fname)
+{
+	int i, k;
+	struct sphere *sp, *sp2;
+	struct stat filetimes;
 
     cursors(); lprcat("\nRestoring . . .");  lflush();
     if (lopen(fname) <= 0)
@@ -299,33 +219,38 @@ restoregame(fname)
         }
     lrfill((char*)beenhere,MAXLEVEL+MAXVLEVEL);
 
-# ifdef MSDOS
-    /* As levels get read in from the save file, store them away
-     * by calling putsavelevel.
-     */
-    for (k = 0; k < MAXLEVEL + MAXVLEVEL; k++)
-        if (beenhere[k]) {
-            rp = getramblk(k);
-            lrfill((char *) &rp->gtime, sizeof (long));
-            lrfill((char *) rp->cell, sizeof rp->cell);
-            rp->level = k;
-        }
-# else
-    for (k=0; k<MAXLEVEL+MAXVLEVEL; k++)
-        if (beenhere[k])
-            lrfill((char*)&cell[(long) k*MAXX*MAXY],sizeof(struct cel)*MAXY*MAXX);
-# endif
+    for (k=0; k<MAXLEVEL+MAXVLEVEL; k++) {
+        
+	if (!beenhere[k]) continue;
+	
+	lrfill((char*)&cell[(long) k*MAXX*MAXY],
+		sizeof(struct cel)*MAXY*MAXX
+	);
+   }
 
-    lrfill((char*)&c[0],100*sizeof(long));  gtime = lrint();
+    lrfill((char*)&c[0],100*sizeof(long));  gtime = larint();
     level = c[CAVELEVEL] = lgetc();
     playerx = lgetc();      playery = lgetc();
-    lrfill((char*)iven,26);     lrfill((char*)ivenarg,26*sizeof(short));
-    for (k=0; k<MAXSCROLL; k++)  scrollname[k][0] = lgetc();
-    for (k=0; k<MAXPOTION; k++)  potionname[k][0] = lgetc();
+    lrfill((char*)iven,26);
+   lrfill((char*)ivenarg,26*sizeof(short));
+    
+    for (k = 0; k < MAXSCROLL; k++) {
+
+	    scrollname[k][0] = lgetc();
+    }
+	    
+    for (k=0; k<MAXPOTION; k++) {
+
+	    potionname[k][0] = lgetc();
+    }
     lrfill((char*)spelknow,SPNUM);      wizard = lgetc();
     rmst = lgetc();         /*  random monster creation flag */
 
-    for (i=0; i<90; i++)    itm[i].qty = lgetc();
+    for (i=0; i<90; i++) {
+	    
+	    dnd_item[i].qty = lgetc();
+    }
+    
     lrfill((char*)course,25);           cheat = lgetc();
     if (VERSION != lgetc())     /*  version number  */
         {
@@ -347,7 +272,7 @@ restoregame(fname)
         }
 
     time(&zzz);
-    initialtime = zzz-lrint();
+    initialtime = zzz-larint();
     fstat(fd,&filetimes);   /*  get the creation and modification time of file  */
     lrfill((char*)&zzz,sizeof(long));   zzz += 6;
     if (filetimes.st_ctime > zzz) fsorry(); /*  file create time    */
@@ -355,19 +280,10 @@ restoregame(fname)
     if (c[HP]<0) { died(284); return; } /* died a post mortem death */
 
     oldx = oldy = 0;
-#ifndef VMS
-# ifndef MSDOS
-    i = lrint();  /* inode # */
-    if (i && (filetimes.st_ino!=i)) fsorry();
-# endif MSDOS
-#endif VMS
+
     lrclose();
-    if (strcmp(fname,ckpfile) == 0)
-        {
-        if (lappend(fname) < 0) fcheat();  else { lprc(' '); lwclose(); }
-        lcreat((char*)0);
-        }
-    else if (unlink(fname) < 0) fcheat(); /* can't unlink save file */
+   
+    if (unlink(fname) < 0) fcheat(); /* can't unlink save file */
 /*  for the greedy cheater checker  */
     for (k=0; k<6; k++) if (c[k]>99) greedy();
     if (c[HPMAX]>999 || c[SPELLMAX]>125) greedy();
@@ -379,47 +295,69 @@ restoregame(fname)
         raiseexperience((long)tmp);
         }
     getlevel();  lasttime=gtime;
-    }
+}
 
+    
+    
 /*
-    subroutine to not allow greedy cheaters
+ * subroutine to not allow greedy cheaters
  */
-static greedy()
-    {
+static void greedy(void)
+{
+
 #if WIZID
-    if (wizard) return;
+	if (wizard) {
+		
+		return;
+	}
 #endif
 
-    lprcat("\n\nI am so sorry, but your character is a little TOO good!  Since this\n");
-    lprcat("cannot normally happen from an honest game, I must assume that you cheated.\n");
-    lprcat("In that you are GREEDY as well as a CHEATER, I cannot allow this game\n");
-    lprcat("to continue.\n"); nap(5000);  c[GOLD]=c[BANKACCOUNT]=0;  died(-267); return;
-    }
+	lprcat("\n\nI am so sorry, but your character is a little TOO good!  Since this\n");
+	lprcat("cannot normally happen from an honest game, I must assume that you cheated.\n");
+	lprcat("In that you are GREEDY as well as a CHEATER, I cannot allow this game\n");
+	lprcat("to continue.\n");
+
+	nap(5000);
+	c[GOLD] = c[BANKACCOUNT] = 0;
+	died(-267);
+}
+
 
 /*
-    subroutine to not allow altered save files and terminate the attempted
-    restart
+ * subroutine to not allow altered save files and terminate the attempted
+ * restart
  */
-static fsorry()
-    {
-    lprcat("\nSorry, but your savefile has been altered.\n");
-    lprcat("However, seeing as I am a good sport, I will let you play.\n");
-    lprcat("Be advised though, you won't be placed on the normal scoreboard.");
-    cheat = 1;  nap(4000);
-    }
+static void fsorry(void)
+{
+
+	lprcat("\nSorry, but your savefile has been altered.\n");
+	lprcat("However, seeing as I am a good sport, I will let you play.\n");
+	lprcat("Be advised though, you won't be placed on the normal scoreboard.");
+	
+	cheat = 1;
+	nap(4000);
+}
+    
 
 /*
-    subroutine to not allow game if save file can't be deleted
+ * subroutine to not allow game if save file can't be deleted
  */
-static fcheat()
-    {
+static void fcheat(void)
+{
+
 #if WIZID
-    if (wizard) return;
+	if (wizard) {
+		
+		return;
+	}
 #endif
 
-    lprcat("\nSorry, but your savefile can't be deleted.  This can only mean\n");
-    lprcat("that you tried to CHEAT by protecting the directory the savefile\n");
-    lprcat("is in.  Since this is unfair to the rest of the larn community, I\n");
-    lprcat("cannot let you play this game.\n");
-    nap(5000);  c[GOLD]=c[BANKACCOUNT]=0;  died(-268); return;
-    }
+	lprcat("\nSorry, but your savefile can't be deleted.  This can only mean\n");
+	lprcat("that you tried to CHEAT by protecting the directory the savefile\n");
+	lprcat("is in.  Since this is unfair to the rest of the larn community, I\n");
+	lprcat("cannot let you play this game.\n");
+	
+	nap(5000);
+	c[GOLD] = c[BANKACCOUNT] = 0;
+	died(-268);
+}

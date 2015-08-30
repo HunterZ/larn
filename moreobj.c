@@ -21,24 +21,24 @@
    desecrate_altar()
    pray_at_altar()
 */
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
-       void specify_object();
-static void specify_obj_nocurs();
-static void specify_obj_cursor();
-extern int dropflag ;
-static void move_cursor();
+
+static void	fch(int, long *);
+static void	specify_obj_nocurs(void);
+static void	specify_obj_cursor(void);
+static void	move_cursor(signed char *, signed char *, unsigned char);
+
+
+
 
 /*
-    subroutine to process an altar object
-*/
-oaltar()
-    {
-    unsigned long k;
+ * subroutine to process an altar object
+ */
+void oaltar(void)
+{
 
     lprcat("\nDo you (p) pray  (d) desecrate"); iopts();
     while (1) switch(ttgetch())
@@ -71,14 +71,15 @@ oaltar()
         act_ignore_altar();
             return;
         };
-    }
+}
+
+    
 
 /*
     subroutine to process a throne object
 */
-othrone(arg)
-    int arg;
-    {
+void othrone(int arg)
+{
 
     lprcat("\nDo you (p) pry off jewels, (s) sit down"); iopts();
     while (1)
@@ -99,10 +100,12 @@ othrone(arg)
         case '\33': ignore(); return;
         };
       }
-    }
+}
 
-odeadthrone()
-    {
+    
+
+void odeadthrone(void)
+{
     lprcat("\nDo you (s) sit down"); iopts();
     while (1)
       {
@@ -117,13 +120,16 @@ odeadthrone()
         case '\33': ignore(); return;
         };
       }
-    }
+}
 
+    
+    
 /*
-    subroutine to process a chest object
-*/
-ochest()
-    {
+ * subroutine to process a chest object
+ */
+void ochest(void)
+{
+
     lprcat("\nDo you (t) take it, (o) try to open it"); iopts();
     while (1)
       {
@@ -144,13 +150,15 @@ ochest()
         case '\33': ignore(); return;
         };
       }
-    }
+}
+    
+    
 
 /*
-    process a fountain object
-*/
-ofountain()
-    {
+ * process a fountain object
+ */
+void ofountain(void)
+{
     cursors();
     lprcat("\nDo you (d) drink, (w) wash yourself"); iopts();
     while (1) switch(ttgetch())
@@ -168,17 +176,20 @@ ofountain()
             act_wash_fountain();
             return;
         }
-    }
+}
+    
+
 
 /*
-    a subroutine to raise or lower character levels
-    if x > 0 they are raised   if x < 0 they are lowered
-*/
-fntchange(how)
-    int how;
-    {
-    register long j;
+ * a subroutine to raise or lower character levels
+ * if x > 0 they are raised   if x < 0 they are lowered
+ */
+void fntchange(int how)
+{
+    long j;
+	
     lprc('\n');
+
     switch(rnd(9))
         {
         case 1: 
@@ -238,25 +249,27 @@ fntchange(how)
                 break;
         }
     cursors();
-    }
+}
+
+    
 
 /*
     subroutine to process an up/down of a character attribute for ofountain
 */
-static fch(how,x)
-    int how;
-    long *x;
-    {
+static void fch(int how, long *x)
+{
     if (how < 0)     { lprcat(" went down by one!");    --(*x); }
         else         { lprcat(" went up by one!");  (*x)++; }
     bottomline();
-    }
+}
+
+    
 
 /*
     For command mode.  Perform drinking at a fountain.
 */
-drink_fountain()
-    {
+void drink_fountain(void)
+{
     cursors() ;
     if (item[playerx][playery] == ODEADFOUNTAIN)
         lprcat("\nThere is no water to drink!") ;
@@ -267,13 +280,16 @@ drink_fountain()
     else 
         act_drink_fountain();
     return;
-    }
+}
+
+    
+    
 
 /*
     For command mode.  Perform washing (tidying up) at a fountain.
 */
-wash_fountain()
-    {
+void wash_fountain(void)
+{
     cursors() ;
     if (item[playerx][playery] == ODEADFOUNTAIN)
         lprcat("\nThere is no water to wash in!") ;
@@ -284,13 +300,15 @@ wash_fountain()
     else
         act_wash_fountain();
     return;
-    }
+}
+    
+
 
 /*
     For command mode.  Perform entering a building.
 */
-enter()
-    {
+void enter(void)
+{
     cursors() ;
     switch ( item[playerx][playery] )
         {
@@ -340,13 +358,15 @@ enter()
             lprcat("\nThere is no place to enter here!\n");
             break;
         }
-    }
+}
+
+    
 
 /*
     For command mode.  Perform removal of gems from a jeweled throne.
 */
-remove_gems ( )
-    {
+void remove_gems(void)
+{
     cursors();
     if (item[playerx][playery] == ODEADTHRONE)
         lprcat("\nThere are no gems to remove!");
@@ -360,13 +380,16 @@ remove_gems ( )
     else
         lprcat("\nI see no throne here to remove gems from!");
     return;
-    }
+}
+    
+
 
 /*
     For command mode.  Perform sitting on a throne.
 */
-sit_on_throne( )
-    {
+void sit_on_throne(void)
+{
+
     cursors();
     if (item[playerx][playery] == OTHRONE)
         act_sit_throne(0);
@@ -379,14 +402,16 @@ sit_on_throne( )
         lprcat("\nI see no throne to sit on here!");
 
     return;
-    }
+}
+    
+
 
 /*
     For command mode.  Checks that player is actually standing at a set up
     up stairs or volcanic shaft.  
 */
-up_stairs()
-    {
+void up_stairs(void)
+{
     cursors();
     if (item[playerx][playery] == OSTAIRSDOWN)
         lprcat("\nThe stairs don't go up!");
@@ -399,14 +424,17 @@ up_stairs()
 
     else
         act_up_stairs();
-    }
+}
+    
+    
+
 
 /*
     For command mode.  Checks that player is actually standing at a set of
     down stairs or volcanic shaft.
 */
-down_stairs()
-    {
+void down_stairs(void)
+{
     cursors();
     if (item[playerx][playery] == OSTAIRSUP)
         lprcat("\nThe stairs don't go down!");
@@ -419,13 +447,15 @@ down_stairs()
 
     else
         act_down_stairs();
-    }
+}
+    
+
 
 /*
     For command mode.  Perform opening an object (door, chest).
 */
-open_something( )
-    {
+void open_something(void)
+{
     int x,y;    /* direction to open */
     char tempc; /* result of prompting to open a chest */
 
@@ -435,7 +465,6 @@ open_something( )
     if (c[CONFUSE])
         {
         lprcat("You're too confused!");
-        beep();
         return;
         }
 
@@ -464,7 +493,6 @@ open_something( )
         {
         case OOPENDOOR:
             lprcat("The door is already open!");
-            beep();
             break;
 
         case OCHEST:
@@ -477,17 +505,19 @@ open_something( )
 
         default:
             lprcat("You can't open that!");
-            beep();
             break;
         }
-    }
+}
+    
+
+
 
 /*
     For command mode.  Perform the action of closing something (door).
 */
-close_something()
-    {
-    int x,y;
+void close_something(void)
+{
+	int x, y;
 
     cursors();
     /* check for confusion.
@@ -495,7 +525,6 @@ close_something()
     if (c[CONFUSE])
         {
         lprcat("You're too confused!");
-        beep();
         return;
         }
 
@@ -507,7 +536,6 @@ close_something()
         {
         case OCLOSEDDOOR:
             lprcat("The door is already closed!");
-            beep();
             break;
 
         case OOPENDOOR:
@@ -523,29 +551,34 @@ close_something()
 
         default:
             lprcat("You can't close that!");
-            beep();
             break;
         }
-    }
+}
+    
+
+
 
 /*
-    For command mode.  Perform the act of descecrating an altar.
-*/
-desecrate_altar()
-    {
+ * For command mode.  Perform the act of descecrating an altar.
+ */
+void desecrate_altar(void)
+{
     cursors();
     if (item[playerx][playery] == OALTAR)
         act_desecrate_altar();
     else
         lprcat("\nI see no altar to desecrate here!");
-    }
+}
+    
+
+    
+    
 
 /*
     For command mode.  Perform the act of praying at an altar.
 */
-pray_at_altar()
-    {
-    extern char prayed ;
+void pray_at_altar(void)
+{
 
     cursors();
     if (item[playerx][playery] != OALTAR)
@@ -553,45 +586,44 @@ pray_at_altar()
     else
     act_donation_pray();
     prayed = 1 ;
-    }
+}
+
+    
 
 /*
     Identify objects for the player.
 */
-void specify_object()
-    {
-    cursors();
-    lprcat("\n\nIdentify unknown object by cursor [ynq]?");
-    while (1)
-        {
-        switch (ttgetch())
-            {
-            case '\33':
-            case 'q':
-                return;
-                break;
-            case 'y':
-            case 'Y':
-                specify_obj_cursor();
-                return;
-                break;
-            case 'n':
-            case 'N':
-                specify_obj_nocurs();
-                return;
-                break;
-            default:
-                break;
-            }
+void specify_object(void)
+{
+	cursors();
+	lprcat("\nIdentify unknown object by cursor [ynq]?");
+	    
+	while (TRUE) {
+
+		switch (ttgetch()) {
+		case '\33':
+		case 'q':
+			return;
+		case 'y':
+		case 'Y':
+			specify_obj_cursor();
+			return;
+		case 'n':
+		case 'N':
+			specify_obj_nocurs();
+			return;
+		}
         }
-    }
+}
+
+    
 
 /* perform the actions of identifying the object/monster associated with a
    character typed by the user.  assumes cursors().
 */
-static void specify_obj_nocurs()
-    {
-    register int i, j, flag;
+static void specify_obj_nocurs(void)
+{
+	int i, j, flag;
 
     lprcat("\nType object character:");
     switch (i=ttgetch())
@@ -627,31 +659,20 @@ static void specify_obj_nocurs()
                     if (i==objnamelist[j])
                         {
                         lprc('\n');
-                        if (boldobjects)
-                            {
-                            setbold();
-                            lprc(i);
-                            resetbold();
-                            }
-                        else
-                            lprc(i);
+			lprc(i);
                         lprintf(": %s", objectname[j]);
                         flag = TRUE;
                         }
             if (!flag)
                 lprintf("\n%c: unknown monster/object", i );
             return;
-            break;
         }
-    }
+}
 
-static void specify_obj_cursor()
-    {
-#if __STDC__
+
+static void specify_obj_cursor(void)
+{
     signed char objx, objy;
-#else
-    char objx, objy;
-#endif
     int i;
 
     lprcat("\nMove the cursor to an unknown item.");
@@ -719,14 +740,7 @@ static void specify_obj_cursor()
                 if ( know[objx][objy] & HAVESEEN )
                     {
                     lprc('\n');
-                    if (boldobjects)
-                        {
-                        setbold();
-                        lprc(objnamelist[i]);
-                        resetbold();
-                        }
-                    else
-                        lprc(objnamelist[i]);
+		lprc(objnamelist[i]);
                     lprintf(": %s", objectname[i]);
                     return;
                     }
@@ -770,23 +784,23 @@ static void specify_obj_cursor()
                 break;
             }
         }
-    }
+}
 
-static void move_cursor( xx, yy, cdir )
-#if __STDC__
-signed char *xx ;
-signed char *yy ;
-#else
-char *xx ;
-char *yy ;
-#endif
-unsigned char cdir ;
-    {
+    
+
+static void move_cursor(signed char *xx, signed char *yy, unsigned char cdir )
+{
+
     *xx += diroffx[cdir];
     *yy += diroffy[cdir];
+	
     if ( *yy < 0 ) *yy = MAXY-1;
     if ( *yy > MAXY-1 ) *yy = 0;
     if ( *xx < 0 ) *xx = MAXX-1;
     if ( *xx > MAXX-1 ) *xx = 0;
+
     cursor( *xx+1, *yy+1 );
-    }
+}
+
+
+

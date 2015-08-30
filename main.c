@@ -1,138 +1,85 @@
 /* main.c */
 
-#ifdef MSDOS
-#include "errno.h"
-#include "setjmp.h"
-#include "stdlib.h"
-#endif
 
-#include "header.h"
-#include "larndefs.h"
-#include "monsters.h"
-#include "objects.h"
-#include "player.h"
-#include "patchlev.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <setjmp.h>
 
-#ifndef MSDOS
-# ifndef VMS
-#  include <pwd.h>
-# endif VMS
-#endif MSDOS
+#include "larncons.h"
+#include "larndata.h"
+#include "larnfunc.h"
 
-extern char move_no_pickup;
+
+static void		parse(void);
+
+static void		randmonst(void);
+
+static void		run(int);
+
+static void		wield(void);
+
+static void		ydhi(int);
+static void		ycwi(int);
+
+static void		wear(void);
+
+static void		dropobj(void);
+
+static int		floor_consume(int, char *);
+
+static void		consume(int, char *, int (*)());
+
+static int		whatitem(char *);
+
+
 int dropflag=0; /* if 1 then don't lookforobject() next round */
 int rmst=80;    /*  random monster creation counter     */
 int userid;     /* the players login user id number */
-char nowelcome=0,nomove=0; /* if (nomove) then don't count next iteration as a
+signed char nomove=0; /* if (nomove) then don't count next iteration as a
                               move */
 static char viewflag=0;    /* if viewflag then we have done a 99 stay here
                               and don't showcell in the main loop */
-char restorflag=0;         /* 1 means restore has been done    */
-char prompt_mode = 0;         /* 1 if prompting for actions */
-
-#ifdef MSDOS
+signed char restorflag=0;         /* 1 means restore has been done    */
 
 static char cmdhelp[] = "\
-Cmd line format: larn [-slicnhp] [-o<optsfile>] [-##] [++]\n\
+Cmd line format: larn [-slicnhp] [-##] [++]\n\
   -s   show the scoreboard\n\
   -l   show the logfile (wizard id only)\n\
   -i   show scoreboard with inventories of dead characters\n\
   -c   create new scoreboard (wizard id only)\n\
-  -n   suppress welcome message on starting game\n\
   -##  specify level of difficulty (example: -5)\n\
   -h   print this help text\n\
-  -p   prompt for actions on objects\n\
-  ++   restore game from checkpoint file\n\
-  -o<optsfile>   specify larnopts filename to be used instead of \"larn.opt\"\n\
 ";
 
-# else
 
-static char cmdhelp[] = "\
-Cmd line format: larn [-slicnhp] [-o<optsfile>] [-##] [++]\n\
-  -s   show the scoreboard\n\
-  -l   show the logfile (wizard id only)\n\
-  -i   show scoreboard with inventories of dead characters\n\
-  -c   create new scoreboard (wizard id only)\n\
-  -n   suppress welcome message on starting game\n\
-  -##  specify level of difficulty (example: -5)\n\
-  -h   print this help text\n\
-  -p   prompt for actions on objects\n\
-  ++   restore game from checkpoint file\n\
-  -o<optsfile>   specify .larnopts filename to be used instead of \"~/.larnopts\"\n\
-";
+signed int save_mode = 0;      /* 1 if doing a save game */
 
-# endif
 
-#ifdef MSDOS
-int save_mode = 0;      /* 1 if doing a save game */
-jmp_buf save_jbuf;      /* To recover from disk full errors */
-#endif
-
-#ifdef VT100
-static char *termtypes[] = { "vt100", "vt101", "vt102", "vt103", "vt125",
-    "vt131", "vt140", "vt180", "vt220", "vt240", "vt241", "vt320", "vt340",
-    "vt341"  };
-#endif
-
-#ifdef VMS
-# define EXIT_FAILURE
-# define EXIT_SUCCESS 1
-#else
-# define EXIT_FAILURE 1
-# define EXIT_SUCCESS 0
-#endif
 
 /*
     ************
     MAIN PROGRAM
     ************
 */
-main(argc,argv)
-    int argc;
-    char **argv;
-    {
-    register int i,j;
-    int hard = -1;
-    char *ptr=0;
-#ifdef VT100
-    char *ttype;
-#endif
-#ifndef MSDOS
-    struct passwd *pwe,*getpwuid();
-#endif
+int main(int argc, char *argv[])
+{
+	int i;
+	int hard = -1;
+	char *ptr=0;
+	
 
 /*
  *  first task is to identify the player
  */
-#ifndef VT100
     init_term();    /* setup the terminal (find out what type) for termcap */
-#endif
-#ifdef MSDOS
+
     ptr = "PLAYER";
-#else
-#ifdef VMS
-    ptr = getenv("USER");
-#else
-    if (((ptr = getlogin()) == 0) || (*ptr==0)) /* try to get login name */
-      if (pwe=getpwuid(getuid())) /* can we get it from /etc/passwd? */
-        ptr = pwe->pw_name;
-      else
-      if ((ptr = getenv("USER")) == 0)
-        if ((ptr = getenv("LOGNAME")) == 0)
-          {
-          noone: write(2, "Can't find your logname.  Who Are You?\n",39);
-                 exit();
-          }
-    if (ptr==0) goto noone;
-    if (strlen(ptr)==0) goto noone;
-#endif
-#endif
 
 /*
  *  second task is to prepare the pathnames the player will need
  */
-    strcpy(loginname,ptr); /* save loginname of the user for logging purposes */
     strcpy(logname,ptr);    /* this will be overwritten with the players name */
 
 /* Set up the input and output buffers.
@@ -142,97 +89,19 @@ main(argc,argv)
     if ((lpbuf==0) || (inbuffer==0)) 
         died(-285); /* malloc() failure */
 
-# ifdef MSDOS
-    /* LARNHOME now comes from the options file, so it must be read in
-     * before constructing the other file names.  Unfortunately we have
-     * to look for the -o option now.
-     */
-    strcpy(optsfile, LARNOPTS);
-    for (i = 1; i < argc; i++)
-        if (strncmp(argv[i], "-o", 2) == 0) 
-            {
-            argv[i][0] = 0;         /* remove this argv */
-            if (argv[i][2] != '\0')
-                strncpy(optsfile, &argv[i][2], PATHLEN);
-            else
-                {
-                strncpy(optsfile, argv[i + 1], PATHLEN);
-                argv[i + 1][0] = 0; /* and this argv */
-                }
-            optsfile[PATHLEN - 1] = 0;
-            break;
-            }
-    readopts();
-    append_slash(larndir);
+    strcpy(savefilename, SAVEFILE);
+    strcpy(scorefile, SCORENAME);   /* the larn scoreboard filename */
+    strcpy(logfile, LOGFNAME);      /* larn activity logging filename */
+    strcpy(helpfile, HELPNAME);     /* the larn on-line help file */
+    strcpy(larnlevels, LEVELSNAME); /* the pre-made cave level data file */
+    strcpy(fortfile, FORTSNAME);    /* the fortune data file name */
+    strcpy(playerids, PLAYERIDS);   /* the playerid data file name */
 
-    /* Savefile and swapfile can be given explicitly as options
-     */
-    if (!savefilename[0]) 
-        {
-        strcpy(savefilename, larndir);
-        strcat(savefilename, SAVEFILE);
-        }
-    if (!swapfile[0]) 
-        {
-        strcpy(swapfile, larndir);
-        strcat(swapfile, SWAPFILE);
-        }
-    strcpy(scorefile, larndir);
-    strcpy(logfile, larndir);
-    strcpy(helpfile, larndir);
-    strcpy(larnlevels, larndir);
-    strcpy(fortfile, larndir);
-    strcpy(playerids, larndir);
-    strcpy(ckpfile, larndir);
-
-# else /* MSDOS */
-
-    if ((ptr = getenv("HOME")) == 0) 
-        ptr = ".";
-#ifdef SAVEINHOME
-    /* save file name in home directory */
-# ifdef VMS
-    sprintf(savefilename, "%s%s",ptr, SAVEFILE);
-# else
-    sprintf(savefilename, "%s/%s",ptr, SAVEFILE);
-# endif VMS
-#else
-    strcat(savefilename,logname);   /* prepare savefile name */
-    strcat(savefilename,".sav");    /* prepare savefile name */
-#endif
-#ifdef VMS
-    sprintf(optsfile, "%s%s",ptr, LARNOPTS);   /* the options filename */
-#else
-    sprintf(optsfile, "%s/%s",ptr, LARNOPTS);   /* the options filename */
-#endif VMS
-
-# endif /* MSDOS */
-
-    strcat(scorefile, SCORENAME);   /* the larn scoreboard filename */
-    strcat(logfile, LOGFNAME);      /* larn activity logging filename */
-    strcat(helpfile, HELPNAME);     /* the larn on-line help file */
-    strcat(larnlevels, LEVELSNAME); /* the pre-made cave level data file */
-    strcat(fortfile, FORTSNAME);    /* the fortune data file name */
-    strcat(playerids, PLAYERIDS);   /* the playerid data file name */
-    strcat(ckpfile, CKPFILE);
-
-# ifdef TIMECHECK
-    strcat(holifile, HOLIFILE);     /* the holiday data file name */
+# ifdef EXTRA
+    strcpy(diagfile, DIAGFILE);
 # endif
 
-#ifdef VT100
-/*
- *  check terminal type to avoid users who have not vt100 type terminals
- */
-    ttype = getenv("TERM");
-    for (j=1, i=0; i<sizeof(termtypes)/sizeof(char *); i++)
-        if (strcmp(ttype,termtypes[i]) == 0) { j=0;  break; }
-    if (j)
-        {
-        lprcat("Sorry, Larn needs a VT100 family terminal for all it's features.\n"); lflush();
-        exit(EXIT_FAILURE);
-        }
-#endif
+
 
 /*
  *  now make scoreboard if it is not there (don't clear) 
@@ -270,11 +139,6 @@ main(argc,argv)
                     }
                 exit(EXIT_SUCCESS);
 
-            case 'n':          /* no welcome msg   */
-                nowelcome=1;
-                argv[i][0]=0;
-                break;
-
             case '0': case '1': case '2': case '3': case '4': case '5':
             case '6': case '7': case '8': case '9': /* for hardness */
                 hard = atoi(&argv[i][1]);
@@ -282,160 +146,93 @@ main(argc,argv)
 
             case 'h':          /* print out command line arguments */
             case '?':
-                write(1,cmdhelp,sizeof(cmdhelp));
+                puts(cmdhelp);
                 exit(EXIT_SUCCESS);
-
-            case 'o':          /* specify a .larnopts filename */
-                if (argv[i]+2 != '\0')
-                    strncpy(optsfile,argv[i]+2,127);
-                else
-                    {
-                    strncpy( optsfile, argv[i+1][0], 127 );
-                    argv[i+1][0] = '\0';
-                    }
-                break;
-
-            case 'p':          /* set 'prompt_mode' flag */
-                prompt_mode = 1 ;
-                break ;
 
             default:
                 printf("Unknown option <%s>\n",argv[i]);
                 write(1,cmdhelp,sizeof(cmdhelp));
                 exit(EXIT_SUCCESS);
             };
-
-        if (strcmp(argv[i], "++") == 0)
-            restorflag = 1;
     }
 
-#ifndef MSDOS
-    readopts();     /* read the options file if there is one */
-#endif
-
-#ifdef TIMECHECK
-/*
- *  this section of code checks to see if larn is allowed during working hours
- */
-    if (dayplay==0) /* check for not-during-daytime-hours */
-      if (playable())
-        {
-        write(2,"Sorry, Larn can not be played during working hours.\n",52);
-        exit(EXIT_SUCCESS);
-        }
-#endif TIMECHECK
-
-#ifdef UIDSCORE
-    userid = geteuid(); /* obtain the user's effective id number */
-#else UIDSCORE
     userid = getplid(logname);  /* obtain the players id number */
-#endif UIDSCORE
-#ifdef VMS
-    wisid = userid;
-#endif
+
     if (userid < 0) 
         { 
         write(2,"Can't obtain playerid\n",22);
         exit(EXIT_SUCCESS);
         }
 
-#ifdef HIDEBYLINK
-/*
- *  this section of code causes the program to look like something else to ps
- */
-    if (strcmp(psname,argv[0])) /* if a different process name only */
-        {
-        if ((i=access(psname,1)) < 0)
-            {       /* link not there */
-            if (link(argv[0],psname)>=0)
-                {
-                argv[0] = psname;   execv(psname,argv);
-                }
-            }
-        else
-            unlink(psname);
-        }
-
-    for (i=1; i<argc; i++)
-        {
-        szero(argv[i]); /* zero the argument to avoid ps snooping */
-        }
-#endif HIDEBYLINK
-
 /*
  *  He really wants to play, so malloc the memory for the dungeon.
  */
-# ifdef MSDOS
-    allocate_memory();
-# else
-    cell = (struct cel *)malloc(sizeof(struct cel)*(MAXLEVEL+MAXVLEVEL)*MAXX*MAXY);
-    if (cell == 0) died(-285);  /* malloc failure */
-# endif
+    cell = malloc((sizeof *cell) * (MAXLEVEL + MAXVLEVEL) * MAXX * MAXY);
+    if (cell == NULL) {
+
+	    /* malloc failure */
+	    died(-285);  
+    }
+
     lcreat((char*)0);   
     newgame();      /*  set the initial clock  */
 
-    if (restorflag == 1)           /* restore checkpoint file */
-        {
-        clear();
-        hitflag = 1;
-        restoregame(ckpfile);
-        }
-    else if (access(savefilename,0)==0)   /* restore game if need to */
+     if (access(savefilename,0)==0)   /* restore game if need to */
         {
         clear();    
         restorflag = 1;
         hitflag=1;  
         restoregame(savefilename);  /* restore last game    */
         }
-    sigsetup();     /* trap all needed signals  */
+
     setupvt100();   /*  setup the terminal special mode             */
     sethard(hard);  /* set up the desired difficulty                */
     if (c[HP]==0)   /* create new game */
         {
+	 predostuff = 1; /* tell signals that we are in the welcome screen */
+	welcome();     /* welcome the player to the game */
+
         makeplayer();   /*  make the character that will play           */
         newcavelevel(0);/*  make the dungeon                            */
-        predostuff = 1; /* tell signals that we are in the welcome screen */
-        if (nowelcome==0)
-            welcome();     /* welcome the player to the game */
-# ifdef MSDOS
+       
         /* Display their mail if they've just won the previous game
          */
         checkmail();
-# endif
+
         }
 
     lprc(T_INIT);   /* Reinit the screen because of welcome and check mail
                      * having embedded escape sequences.*/
-    drawscreen();   /*  show the initial dungeon                    */
-    predostuff = 2; /* tell the trap functions that they must do a showplayer()
-               from here on */
-    /* nice(1); /* games should be run niced */
+    drawscreen();   /*  show the initial dungeon */
+	
+	/* tell the trap functions that they must do a showplayer() from here on */
+	predostuff = 2; 
+	
     yrepcount = hit2flag = 0;
-    /* init previous player position to be current position, so we don't
-       reveal any stuff on the screen prematurely.
-    */
-    oldx = playerx ;
-    oldy = playery;
-    gtime = -1;
+	
+	/* 
+	 * init previous player position to be current position, so we don't
+	 * reveal any stuff on the screen prematurely.
+	 */
+	oldx = playerx ;
+	oldy = playery;
+	gtime = -1;
 
     /* MAINLOOP
        find objects, move stuff, get commands, regenerate
     */
     while (1)
         {
-        if (dropflag==0)
+        if (dropflag==0) {
             /* see if there is an object here.
 
                If in prompt mode, identify and prompt; else
-               identify, pickup if ( auto pickup and not move-no-pickup ),
-               never prompt.
+               identify, never prompt.
             */
-            if (prompt_mode)
-                lookforobject( TRUE, FALSE, TRUE );
-            else
-                lookforobject( TRUE, ( auto_pickup && !move_no_pickup ), FALSE );
-            else
+                lookforobject( TRUE, FALSE, FALSE );
+    }  else {
                 dropflag=0; /* don't show it just dropped an item */
+    }
 
         /* handle global activity
            update game time, move spheres, move walls, move monsters
@@ -486,30 +283,43 @@ main(argc,argv)
                 fillmonst(makemonst(level));
                 }
         }
-    }
+
+	return EXIT_SUCCESS;
+}
+
+
+
 
 /*
-    subroutine to randomly create monsters if needed
+ * subroutine to randomly create monsters if needed
  */
-static randmonst()
-    {
-    if (c[TIMESTOP]) return;    /*  don't make monsters if time is stopped  */
-    if (--rmst <= 0)
-        {
-        rmst = 120 - (level<<2);  fillmonst(makemonst(level));
+static void randmonst(void)
+{
+
+	/*  don't make monsters if time is stopped  */
+	if (c[TIMESTOP]) {
+		
+		return;
+	}
+	
+	if (--rmst <= 0) {
+
+		rmst = 120 - (level<<2);
+		
+		fillmonst(makemonst(level));
         }
-    }
+}
 
-
+
+
 /*
-    parse()
-
-    get and execute a command
+ * parse()
+ *
+ * get and execute a command
  */
-static parse()
-    {
-    register int i,j,k,flag;
-    extern showeat(),showquaff(),showread();
+static void parse(void)
+{
+	int i, j, k, flag;
 
     while   (1)
         {
@@ -570,10 +380,7 @@ static parse()
 
             case 'p':           /* pray at an altar */
                 yrepcount = 0;
-                if (!prompt_mode)
                     pray_at_altar();
-                else
-                    nomove = 1;
                 return;
 
             case 'q':           /* quaff a potion */
@@ -598,30 +405,23 @@ static parse()
 
             case 's':
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     sit_on_throne();
-                else
-                    nomove = 1;
                 return ;
 
             case 't':                       /* Tidy up at fountain */
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     wash_fountain() ;
-                else
-                    nomove = 1;
                 return ;
 
             case 'v':
                 yrepcount=0;
                 nomove = 1;
                 cursors();
-                lprintf("\nCaverns of Larn, Version %d.%d.%d, Diff=%d",(long)VERSION,(long)SUBVERSION,(long)PATCHLEVEL,(long)c[HARDGAME]);
+                lprintf("\nLarn, Version %d.%d.%d, Diff=%d",(long)VERSION,(long)SUBVERSION,(long)PATCHLEVEL,(long)c[HARDGAME]);
                 if (wizard)
                     lprcat(" Wizard");
                 if (cheat) 
                     lprcat(" Cheater");
-                lprcat("\nThis version of Larn by Kevin Routley");
                 return;
 
             case 'w':                       /*  wield a weapon */
@@ -631,34 +431,22 @@ static parse()
 
             case 'A':
                 yrepcount = 0;
-                if (!prompt_mode)
                     desecrate_altar();
-                else
-                    nomove = 1;
                 return;
 
             case 'C':                       /* Close something */
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     close_something();
-                else
-                    nomove = 1;
                 return;
 
             case 'D':                       /* Drink at fountain */
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     drink_fountain() ;
-                else
-                    nomove = 1;
                 return ;
 
             case 'E':               /* Enter a building */
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     enter() ;
-                else
-                    nomove = 1;
                 break ;
 
             case 'I':              /*  list spells and scrolls */
@@ -669,10 +457,7 @@ static parse()
 
             case 'O':               /* Open something */
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     open_something();
-                else
-                    nomove = 1;
                 return;
 
             case 'P':
@@ -693,36 +478,10 @@ static parse()
 
             case 'R' :          /* remove gems from a throne */
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     remove_gems( );
-                else
-                    nomove = 1;
                 return ;
 
-# ifdef MSDOS
             case 'S':
-                /* Set up error recovery
-                 */
-                if (setjmp(save_jbuf) != 0) {
-
-                    /* can't use lwclose!
-                     */
-                    if (lfd > 2)
-                        close(lfd);
-                    lcreat(NULL);
-                    setscroll();
-                    cursors();
-                    lprcat("\nSave failed !\n");
-                    if (errno == ENOSPC)
-                        lprcat("Disk is full !\n");
-                    beep();
-                    (void) unlink(savefilename);
-                    save_mode = 0;
-                    yrepcount = 0;
-                    nomove = 1;
-                    break;
-                }
-
                 /* And do the save.
                  */
                 cursors();
@@ -735,10 +494,7 @@ static parse()
                 wizard=1;
                 died(-257); /* doesn't return */
                 break;
-# else
-            case 'S':   clear();  lprcat("Saving . . ."); lflush();  
-                        savegame(savefilename); wizard=1; died(-257);   /*  save the game - doesn't return  */
-# endif MSDOS
+
 
             case 'T':   yrepcount=0;    cursors();  if (c[SHIELD] != -1) { c[SHIELD] = -1; lprcat("\nYour shield is off"); bottomline(); } else
                                         if (c[WEAR] != -1) { c[WEAR] = -1; lprcat("\nYour armor is off"); bottomline(); }
@@ -763,14 +519,6 @@ static parse()
 
             case ' ':   yrepcount=0;    nomove=1;  return;
 
-# ifdef MSDOS
-            case 'D'-64:
-                yrepcount = 0;
-                nomove = 1;
-                levelinfo();
-                return;
-# endif
-
             case 'L'-64:  yrepcount=0;  drawscreen();  nomove=1; return;    /*  look        */
 
 #if WIZID
@@ -779,20 +527,15 @@ static parse()
                         return;
 #endif
 #endif
-            case '<':                       /* Go up stairs or vol shaft */
-                yrepcount = 0 ;
-                if (!prompt_mode)
+	    
+	    case '<':                       /* Go up stairs or vol shaft */
+                yrepcount = 0;
                     up_stairs();
-        else
-            nomove = 1;
                 return ;
 
             case '>':                       /* Go down stairs or vol shaft*/
                 yrepcount = 0 ;
-                if (!prompt_mode)
                     down_stairs();
-        else
-            nomove = 1;
                 return ;
 
             case '?':                       /* give the help screen */
@@ -803,32 +546,16 @@ static parse()
 
         case ',':                       /* pick up an item */
             yrepcount = 0 ;
-            if (!prompt_mode)
             /* pickup, don't identify or prompt for action */
             lookforobject( FALSE, TRUE, FALSE );
-        else
-            nomove = 1;
         return;
 
             case ':':                       /* look at object */
                 yrepcount = 0 ;
-                if (!prompt_mode)
             /* identify, don't pick up or prompt for action */
                     lookforobject( TRUE, FALSE, FALSE );
                 nomove = 1;  /* assumes look takes no time */
                 return;
-
-        case '@':       /* toggle auto-pickup */
-            yrepcount = 0 ;
-            nomove = 1;
-            cursors();
-            lprcat("\nAuto pickup: ");
-            auto_pickup = !auto_pickup;
-            if (auto_pickup)
-                lprcat("On.");
-            else
-                lprcat("Off.");
-            return;
 
         case '/':        /* identify object/monster */
             specify_object();
@@ -870,14 +597,7 @@ static parse()
 #if WIZID
             case '_':   /*  this is the fudge player password for wizard mode*/
                         yrepcount=0;    cursors(); nomove=1;
-# ifndef MSDOS
-                        if (userid!=wisid)
-                            {
-                            lprcat("Sorry, you are not empowered to be a wizard.\n");
-                            scbr(); /* system("stty -echo cbreak"); */
-                            lflush();  return;
-                            }
-# endif
+
                         if (getpassword()==0)
                             {
                             scbr(); /* system("stty -echo cbreak"); */ return;
@@ -888,7 +608,7 @@ static parse()
                         c[LANCEDEATH]=1;   c[WEAR] = c[SHIELD] = -1;
                         raiseexperience(6000000L);  c[AWARENESS] += 25000;
                         {
-                        register int i,j;
+                        int i,j;
                         for (i=0; i<MAXY; i++)
                             for (j=0; j<MAXX; j++)  know[j][i]=KNOWALL;
                         for (i=0; i<SPNUM; i++) spelknow[i]=1;
@@ -915,89 +635,173 @@ static parse()
 
             };
         }
-    }
-
-parse2()
-    {
-    if (c[HASTEMONST]) movemonst(); movemonst(); /* move the monsters       */
-    randmonst();    regen();
-    }
+}
 
-static run(dir)
-    int dir;
-    {
-    register int i;
-    i=1; while (i)
-        {
-        i=moveplayer(dir);
-        if (i>0) {  if (c[HASTEMONST]) movemonst();  movemonst(); randmonst(); regen(); }
-        if (hitflag) i=0;
-        if (i!=0)  showcell(playerx,playery);
-        }
-    }
 
-/*
-    function to wield a weapon
- */
-static wield()
-    {
-    register int i;
-    while (1)
-        {
-        if ((i = whatitem("wield (- for nothing)")) == '\33')
-        return;
-        if (i != '.')
-            {
-            if (i=='*')
-                {
-                i = showwield();
-                cursors();
-                }
-            if ( i == '-' )
-                {
-                c[WIELD] = -1 ;
-                bottomline();
-                return;
-                }
-            if (i && i != '.')
-                if (iven[i-'a']==0)
-                    { ydhi(i); return; }
-                else if (iven[i-'a']==OPOTION)
-                    { ycwi(i); return; }
-            else if (iven[i-'a']==OSCROLL)
-                    { ycwi(i); return; }
-            else if ((c[SHIELD]!= -1) && (iven[i-'a']==O2SWORD))
-                    { lprcat("\nBut one arm is busy with your shield!");
-                      return; }
-            else
-                {
-                c[WIELD]=i-'a';
-                if (iven[i-'a'] == OLANCE)
-                    c[LANCEDEATH]=1;
-                else c[LANCEDEATH]=0;
-                bottomline();
-                return;
-                }
-            }
-        }
-    }
+
+void parse2(void)
+{
+
+	/* move the monsters */
+	if (c[HASTEMONST]) {
+
+		movemonst();
+	}
+	
+	movemonst(); 
+	
+	randmonst();
+
+	regen();
+}
+
+    
+    
+static void run(int dir)
+{
+	int i;
+	
+	i = 1; 
+
+	while (i) {
+		
+		i = moveplayer(dir);
+		
+		if (i > 0) {
+
+			if (c[HASTEMONST]) {
+				
+				movemonst();
+			}
+			
+			movemonst();
+			randmonst();
+			regen();
+		}
+		
+		if (hitflag) {
+
+			i = 0;
+		}
+		
+		if (i != 0) {
+
+			showcell(playerx,playery);
+		}
+	}
+}
+
+
 
 /*
-    common routine to say you don't have an item
+ * function to wield a weapon
  */
-static ydhi(x)
-    int x;
-    { cursors();  lprintf("\nYou don't have item %c!",x); }
-static ycwi(x)
-    int x;
-    { cursors();  lprintf("\nYou can't wield item %c!",x); }
+static void wield(void)
+{
+	int i;
+
+	while (TRUE) {
+		
+		i = whatitem("wield (- for nothing)");
+		if (i == '\33') return;
+		
+		
+		if (i != '.') {
+            
+			if (i == '*') {
+				
+				i = showwield();
+				cursors();
+			}
+		
+			if ( i == '-' ) {
+				
+				c[WIELD] = -1 ;
+				bottomline();
+				
+				return;
+			}
+			
+			if (!i || i == '.') {
+		
+				continue;
+			}
+
+			if (iven[i-'a']==0) { 
+					
+				ydhi(i);
+				return;
+					
+			} else if (iven[i - 'a'] == OPOTION) { 
+					
+				ycwi(i); 
+				return;
+					
+			} else if (iven[i-'a'] == OSCROLL) {
+					
+				ycwi(i);
+				return;
+					
+			} else if (c[SHIELD] != -1 &&
+				iven[i-'a'] == O2SWORD) {
+						
+				lprcat("\nBut one arm is busy with your shield!");
+				return;
+						
+			} else {
+			
+				c[WIELD]= i - 'a';
+					
+				if (iven[i - 'a'] == OLANCE) {
+						
+					c[LANCEDEATH]=1;
+						
+				} else {
+						
+					c[LANCEDEATH]=0;
+				}
+					
+				bottomline();
+				return;
+			}
+		}
+	}
+}
+
+    
+
+/*
+ * common routine to say you don't have an item
+ */
+static void ydhi(int x)
+{
+
+	cursors();
+	
+	lprintf("\nYou don't have item %c!",x);
+}
+
+
+
+/*
+ * common routine to say you can't wield an item
+ */   
+static void ycwi(int x)
+{
+	cursors();
+	
+	lprintf("\nYou can't wield item %c!",x);
+}
+
+
 
 /*
     function to wear armor
  */
-static wear()
-    {
-    register int i;
+static void wear(void)
+{
+	int i;
+	
     while (1)
         {
         if ((i = whatitem("wear"))=='\33')
@@ -1027,23 +831,26 @@ static wear()
                     };
             }
         }
-    }
+}
+
+
+
 
 /*
     function to drop an object
  */
-static dropobj()
-    {
-    register int i;
-    register char *p;
-    long amt;
+static void dropobj(void)
+{
+	int i;
+	signed char *p;
+	unsigned long amt;
 
     p = &item[playerx][playery];
     while (1)
         {
-        if ((i = whatitem("drop"))=='\33')  
+        if ((i = whatitem("drop"))=='\33')
         return;
-    if (i=='*') 
+    if (i=='*')
         {
         i = showstr(TRUE);
         cursors();
@@ -1059,9 +866,7 @@ static dropobj()
                 if ((amt=readnum((long)c[GOLD])) == 0) return;
                 if (amt>c[GOLD])
                     {
-#ifndef MSDOS
             lprcat("\n");
-#endif MSDOS
             lprcat("You don't have that much!");
             return; }
                 if (amt<=32767)
@@ -1075,11 +880,9 @@ static dropobj()
                 else
                     { *p=OKGOLD; i=32767; amt = 32767000L; }
                 c[GOLD] -= amt;
-#ifndef MSDOS
-                lprintf("You drop %d gold pieces",(long)amt);
-#else
+
                 lprintf("\nYou drop %d gold pieces",(long)amt);
-#endif MSDOS
+
                 iarg[playerx][playery]=i; bottomgold();
                 know[playerx][playery]=0; dropflag=1;  return;
                 }
@@ -1090,14 +893,13 @@ static dropobj()
         }
             }
         }
-    }
+}
 
-static int floor_consume( search_item, cons_verb )
-int search_item;
-char *cons_verb;
-    {
-    register int i;
-    char tempc;
+
+static int floor_consume(int search_item, char *cons_verb)
+{
+	int i;
+	char tempc;
 
     cursors();
     i = item[playerx][playery];
@@ -1139,7 +941,7 @@ char *cons_verb;
             forget();
             break;
         case OPOTION:
-            quaffpotion( iarg[playerx][playery] );
+            quaffpotion(iarg[playerx][playery], 1);
             forget();
             break;
         case OSCROLL:
@@ -1152,14 +954,13 @@ char *cons_verb;
             break;
         }
     return( 1 );
-    }
+}
 
-static int consume( search_item, prompt, showfunc )
-int search_item ;
-char *prompt;
-int (*showfunc)();
-    {
-    register int i;
+
+
+static void consume(int search_item, char *prompt, int (*showfunc)())
+{
+	int i;
 
     while (1)
         {
@@ -1220,32 +1021,37 @@ int (*showfunc)();
                 }
             }
         }
-    }
+}
+
+
 
 /*
     function to ask what player wants to do
  */
-static whatitem(str)
-    char *str;
-    {
+static int whatitem(char *str)
+{
     int i=0;
+
     cursors();  lprintf("\nWhat do you want to %s [* for all] ? ",str);
     while (i>'z' || (i<'a' && i!='-' && i!='*' && i!='\33' && i!='.'))
         i=ttgetch();
     if (i=='\33')
         lprcat(" aborted");
+    
     return(i);
-    }
+}
+
+
+
 
 /*
     subroutine to get a number from the player
     and allow * to mean return amt, else return the number entered
  */
-unsigned long readnum(mx)
-    long mx;
-    {
-    register int i;
-    register unsigned long amt=0;
+unsigned long readnum(long mx)
+{
+    int i;
+    unsigned long amt=0;
 
     sncbr();
     /* allow him to say * for all gold 
@@ -1265,55 +1071,7 @@ unsigned long readnum(mx)
         }
     scbr();
     return(amt);
-    }
+}
 
-#ifdef HIDEBYLINK
-/*
- *  routine to zero every byte in a string
- */
-szero(str)
-    register char *str;
-    {
-    while (*str)
-        *str++ = 0;
-    }
-#endif HIDEBYLINK
 
-#ifdef TIMECHECK
-/*
- *  routine to check the time of day and return 1 if its during work hours
- *  checks the file ".holidays" for forms like "mmm dd comment..."
- */
-int playable()
-    {
-    long g_time,time();
-    int hour,day,year;
-    char *date,*month,*p;
 
-    time(&g_time);  /* get the time and date */
-    date = ctime(&g_time); /* format: Fri Jul  4 00:27:56 EDT 1986 */
-    year = atoi(date+20);
-    hour = (date[11]-'0')*10 + date[12]-'0';
-    day  = (date[8]!=' ') ? ((date[8]-'0')*10 + date[9]-'0') : (date[9]-'0');
-    month = date+4;  date[7]=0; /* point to and NULL terminate month */
-
-    if (((hour>=8 && hour<17)) /* 8AM - 5PM */
-        && strncmp("Sat",date,3)!=0     /* not a Saturday */
-        && strncmp("Sun",date,3)!=0)    /* not a Sunday */
-            {
-        /* now check for a .holidays datafile */
-            lflush();
-            if (lopen(holifile) >= 0)
-                for ( ; ; )
-                    {
-                    if ((p=lgetw())==0) break;
-                    if (strlen(p)<6) continue;
-                    if ((strncmp(p,month,3)==0) && (day==atoi(p+4)) && (year==atoi(p+7)))
-                        return(0); /* a holiday */
-                    }
-            lrclose();  lcreat((char*)0);
-            return(1);
-            }
-    return(0);
-    }
-#endif TIMECHECK

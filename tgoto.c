@@ -16,7 +16,6 @@
  ************************************************************************
  */
 
-
 /*
  *  LIBRARY FUNCTION
  *
@@ -71,22 +70,26 @@
  *  If you have one of these you deserve whatever happens.
  *
  */
-
+
 /*
  *  Miscellaneous stuff
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #define MAXARGS 2
 
-static char *in;        /* Internal copy of input string pointer */
+
+static void	process(void);
+
+
+static const char *in;        /* Internal copy of input string pointer */
 static char *out;       /* Pointer to output array */
 static int args[MAXARGS];   /* Maximum number of args to convert */
 static int pcount;      /* Count of args processed */
 static char output[64];     /* Converted string */
 
-
 /*
  *  PSEUDO CODE
  *
@@ -113,10 +116,7 @@ static char output[64];     /* Converted string */
  *
  */
 
-char *tgoto(cm,destcol,destline)
-char *cm;
-int destcol;
-int destline;
+const char * atgoto(const char *cm, int destcol, int destline)
 {
     if (cm == NULL) {
     return("OOPS");
@@ -126,7 +126,7 @@ int destline;
     args[0] = destline;
     args[1] = destcol;
     pcount = 0;
-    while (*in != NULL) {
+    while (*in != '\0') {
         if (*in != '%') {
         *out++ = *in++;
         } else {
@@ -137,7 +137,7 @@ int destline;
     return(output);
     }
 }
-
+
 /*
  *  INTERNAL FUNCTION
  *
@@ -159,7 +159,7 @@ int destline;
  *  is incremented.
  *
  */
-
+
 /*
  *  PSEUDO CODE
  *
@@ -201,8 +201,7 @@ int destline;
  *
  */
 
-
-static process()
+static void process(void)
 {
     int temp;
 
