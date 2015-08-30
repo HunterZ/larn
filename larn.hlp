@@ -21,7 +21,7 @@ journey into these caverns.
 
 
 
-                [4mHelp File for The Caverns of Larn, Prompt Mode[m
+                [7mHelp File for The Caverns of Larn, Prompt Mode[m
 
 b  move southwest          B  run southwest            S  save the game
 h  move left               H  run left                 .  stay here
@@ -37,35 +37,35 @@ g  get present pack weight P  give tax status
 i  inventory your pockets  I  list all items found     ?  this help screen
 q  quaff a potion          Q  quit the game
 r  read a scroll           v  print program version
-w  weild a weapon          W  wear armor               ^L redraw the screen
+w  wield a weapon          W  wear armor               ^L redraw the screen
 
 
 
 
 
 
-                [4mHelp File for The Caverns of Larn, Command Mode[m
+                [7mHelp File for The Caverns of Larn, Command Mode[m
 
 b  move southwest          B  run southwest            A  desecrate an altar
 c  cast a spell            C  close a door             Z  teleport yourself
 d  drop an item            D  drink at a fountain      <  go up stairs or
 e  eat something           E  enter a store, dungeon      volcanic shaft
-g  get present pack weight G  give the stairs a kick   >  go down stairs or
+g  get present pack weight                             >  go down stairs or
 h  move left               H  run left                    volcanic shaft
 i  inventory your pockets  I  list all items found     ?  this help screen
 j  move down               J  run down                 ^  identify a trap
 k  move up                 K  run up                   ,  pick up item
-l  move right              L  run right                :  look at object
-n  move southeast          N  run southeast
+l  move right              L  run right                :  look at object you
+n  move southeast          N  run southeast               are standing on
                            O  open a door or chest     .  stay here
-p  pray at an altar        P  give tax status
-q  quaff a potion          Q  quit the game
-r  read a scroll           R  remove gems from throne
-s  sit on a throne         S  save the game
-t  tidy up at a fountain   T  take off armor
+p  pray at an altar        P  give tax status          m  move without picking
+q  quaff a potion          Q  quit the game               up an object
+r  read a scroll           R  remove gems from throne  @  toggle auto-pickup
+s  sit on a throne         S  save the game            /  identify objects in
+t  tidy up at a fountain   T  take off armor              the game
 u  move northeast          U  run northeast
 v  print program version
-w  weild a weapon          W  wear armor
+w  wield a weapon          W  wear armor
 y  move northwest          Y  run northwest            ^L redraw the screen
                 [7mSpecial Notes[m
 
@@ -80,16 +80,16 @@ sequences to change video modes (see ch 13 of the DOS 2.0 manual).  See the
 
 When in the store, trading post, school, or home, an [7m<escape>[m will get you out.
 
-When casting a spell, if you need a list of spells you can cast, type '[7mD[m' as
+When casting a spell, if you need a list of spells you can cast, type '[7mI[m' as
 the first letter of your spell.  The available list of spells will be shown,
 after which you may enter the spell code.  This only works on the 1st letter
 of the spell you are casting.
 
-The Author of Larn is Noah Morgan (1982-3), Copying for Profit is Prohibited
-Copyright 1986 by Noah Morgan, All Rights Reserved.
+When an inventory list is on the screen from a drop, quaff, read, or similar
+command, you can type the letter of the object that you wish to act apon,
+without having to type a space to get back to the prompt.
 
-
-
+This version of Larn is by Kevin Routley.
                         [7mLarn Command Line Options[m
 
 larn ++                 restore checkpointed game
@@ -97,12 +97,12 @@ larn -s                 list the scoreboard
 larn -i                 list scores with inventories
 larn -n                 suppress welcome message when beginning a game
 larn -h                 print out all the command line options
-larn -<number>          specify difficulty of the game (may be used with -n)
+larn -?                 print out all the command line options
+larn -<number>          specify difficulty of the game
 larn -o<optsfile>       specify the option file to be used
 larn -c                 create new scoreboards -- prompts for a password
-larn -l                 print out the larn log file 
+larn -l                 print out the larn log file
 larn -p                 play in prompt mode
-
 
 
 
@@ -141,19 +141,19 @@ journey into these caverns.
 The file "larn.opt", if used, should be in a directory along your PATH.
 A sequence of words terminated by whitespace is used to specify options.
 
-    Word                     Meaning
-    cursor:   lowscan highscan  change the shape of the cursor
-    DECRainbow          tell LARN you have that computer
-    enable-checkpointing    turn on periodic checkpointing
-    graphics: wallc floorc  select graphics maze characters
-    keypad          enable the numeric keypad for moving
-    larndir:  directory     the directory to use for larn files
-    monster:  "monst name"  choose a name for a monster
-    name:     "your name"   choose your playing name
-    no-beep         disable beeping of the terminal
-    no-introduction     do not display intro message
-    savefile: save-file-name    define what the savegame filename will be
-    swapfile: swap-file-name    define the name of the swapfile
+    Word                      Meaning
+    cursor: lowscan highscan  change the shape of the cursor
+    DECRainbow                tell LARN you have that computer
+    enable-checkpointing      turn on periodic checkpointing
+    graphics: wallc floorc    select graphics maze characters
+    keypad                    enable the numeric keypad for moving
+    larndir:  directory       the directory to use for larn files
+    monster:  "monst name"    choose a name for a monster
+    name:     "your name"     choose your playing name
+    no-beep                   disable beeping of the terminal
+    no-introduction           do not display intro message
+    savefile: save-file-name  define what the savegame filename will be
+    swapfile: swap-file-name  define the name of the swapfile
 
 Your name and monster names must be enclosed in double quotation marks and may
 be up to 34 characters long.  Longer names are truncated.  Anything enclosed in
@@ -182,5 +182,4 @@ at the time of death.
 
 
 
- .
-
+.

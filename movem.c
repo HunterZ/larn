@@ -1,7 +1,5 @@
 /*
- *  movem.c (move monster)      Larn is copyrighted 1986 by Noah Morgan.
- *
- *  Here are the functions in this file:
+ *  movem.c (move monster)
  *
  *  movemonst()     Routine to move the monsters toward the player
  *  build_proximity_ripple()  Build proximity ripple for smart monster move
@@ -11,20 +9,29 @@
  *  mmove(x,y,xd,yd)    Function to actually perform the monster movement
  */
 #include "header.h"
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
+
 #define min(x,y) (((x)>(y))?(y):(x))
 #define max(x,y) (((x)>(y))?(x):(y))
 
-void movemonst();
-void build_proximity_ripple();
-void move_scared();
-void move_smart();
-void move_dumb();
-void mmove();
+       void movemonst();
+static void build_proximity_ripple();
+static void move_scared();
+static void move_smart();
+static void move_dumb();
+static void mmove();
 
+#if 0
 # define IDISTNORM   8  /* was 17 - dgk */
 # define IDISTAGGR  20  /* was 40 - dgk */
+#endif
+# define IDISTNORM  17  /* was 17 - dgk */
+# define IDISTAGGR  40  /* was 40 - dgk */
 
-static short w1[9],w1x[9],w1y[9];
+static short w1x[9],w1y[9];
 static int tmp1,tmp2,tmp3,tmp4,distance;
 
 /* list of monsters to move */
@@ -40,10 +47,6 @@ static struct foo { char x ; char y; char smart; } movelist[250] ;
 void movemonst()
     {
     register int i,j,movecnt=0, smart_count, min_int ;
-
-    if (c[TIMESTOP]) return;    /* no action if time is stopped */
-    if (c[HASTESELF])  if ((c[HASTESELF]&1)==0)  return;
-    if (spheres) movsphere();   /* move the spheres of annihilation if any */
     if (c[HOLDMONST])  return;  /* no action if monsters are held */
 
     if (c[AGGRAVATE])   /* determine window of monsters to move */
@@ -213,14 +216,14 @@ static char screen[MAXX][MAXY];    /* proximity ripple storage */
 /* queue for breadth-first 'search' build of proximity ripple.
 */
 #define MAX_QUEUE 100
-    struct queue_entry
+static struct queue_entry
         {
         char x ;
         char y ;
         char distance ;
         } queue[MAX_QUEUE];
-    int queue_head = 0 ;
-    int queue_tail = 0 ;
+static int queue_head = 0 ;
+static int queue_tail = 0 ;
 
 /* put a location on the proximity ripple queue
 */
@@ -262,7 +265,7 @@ static char screen[MAXX][MAXY];    /* proximity ripple storage */
     W 9 9 8 7 7 7    will not move at all.
     W W W 8 W W W
 */
-void build_proximity_ripple()
+static void build_proximity_ripple()
     {
     int xl, yl, xh, yh ;
     int k, m, z, tmpx, tmpy;
@@ -283,6 +286,12 @@ void build_proximity_ripple()
         case OTRAPDOOR:
         case OTELEPORTER:
             screen[m][k]=127;
+            break;
+        case OENTRANCE:
+            if (level==1)
+                screen[m][k] = 127;
+            else
+                screen[m][k] = 0;
             break;
         default:
             screen[m][k] = 0;
@@ -324,7 +333,7 @@ void build_proximity_ripple()
 /*
     Move scared monsters randomly away from the player position.
 */
-void move_scared( i, j )
+static void move_scared( i, j )
 int i, j ;
     {
     int xl, yl, tmp, tmpitem ;
@@ -361,7 +370,7 @@ int i, j ;
 
     Parameters: the X,Y position of the monster to be moved.
 */
-void move_smart( i, j )
+static void move_smart( i, j )
 int i,j ;
     {
     int x,y,z ;
@@ -415,7 +424,7 @@ int i,j ;
 
    Parameters: the X,Y position of the monster to move.
 */
-void move_dumb( i, j )
+static void move_dumb( i, j )
 int i, j ;
     {
     int xl, yl, xh, yh ;
@@ -493,7 +502,7 @@ int i, j ;
  *  Enter with the from coordinates in (x,y) and the destination coordinates
  *  in (xd,yd).
  */
-void mmove(aa,bb,cc,dd)
+static void mmove(aa,bb,cc,dd)
     int aa,bb,cc,dd;
     {
     register int tmp,i,flag;
@@ -553,11 +562,7 @@ void mmove(aa,bb,cc,dd)
     if (i==OTELEPORTER) /* monster hits teleport trap */
         { flag=3; fillmonst(mitem[cc][dd]);  mitem[cc][dd]=0; }
     if (c[BLINDCOUNT]) return;  /* if blind don't show where monsters are   */
-# ifdef DGK
-    if (know[cc][dd] & HAVESEEN) 
-# else
-    if (know[cc][dd] & 1) 
-# endif
+    if (know[cc][dd] & HAVESEEN)
         {
         p=0;
         if (flag) cursors();
@@ -570,11 +575,6 @@ void mmove(aa,bb,cc,dd)
         if (p) { lprintf(p,who,monster[tmp].name); beep(); }
         }
 /*  if (yrepcount>1) { know[aa][bb] &= 2;  know[cc][dd] &= 2; return; } */
-# ifdef DGK
     if (know[aa][bb] & HAVESEEN)   show1cell(aa,bb);
     if (know[cc][dd] & HAVESEEN)   show1cell(cc,dd);
-# else
-    if (know[aa][bb] & 1)   show1cell(aa,bb);
-    if (know[cc][dd] & 1)   show1cell(cc,dd);
-# endif
     }

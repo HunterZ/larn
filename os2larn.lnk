@@ -10,6 +10,7 @@ obj\fortune.obj+
 obj\global.obj+
 obj\help.obj+
 obj\io.obj+
+obj\iventory.obj+
 obj\main.obj+
 obj\monster.obj+
 obj\moreobj.obj+
@@ -30,6 +31,7 @@ obj\tgoto.obj+
 obj\tputs.obj+
 obj\tok.obj+
 obj\vms.obj
-larn122.exe
-larn122.map/map /line,,
+larn123.exe
+larn123.map/map /line
+doscalls.lib
 os2larn.def

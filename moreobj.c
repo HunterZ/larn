@@ -1,7 +1,7 @@
-/* moreobj.c        Larn is copyrighted 1986 by Noah Morgan.
- 
+/* moreobj.c
+
    Routines in this file:
- 
+
    oaltar()
    othrone()
    odeadthrone()
@@ -14,7 +14,6 @@
    enter()
    remove_gems()
    sit_on_throne()
-   kick_stairs()
    up_stairs()
    down_stairs()
    open_something()
@@ -23,6 +22,16 @@
    pray_at_altar()
 */
 #include "header.h"
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
+
+       void specify_object();
+static void specify_obj_nocurs();
+static void specify_obj_cursor();
+extern int dropflag ;
+static void move_cursor();
 
 /*
     subroutine to process an altar object
@@ -34,32 +43,32 @@ oaltar()
     lprcat("\nDo you (p) pray  (d) desecrate"); iopts();
     while (1) switch(ttgetch())
         {
-        case 'p':   
-	    lprcat(" pray\nDo you (m) give money or (j) just pray? ");
+        case 'p':
+        lprcat(" pray\nDo you (m) give money or (j) just pray? ");
             while (1) switch(ttgetch())
                 {
                 case 'j': 
-		    lprcat("\n");
-		    act_just_pray();
-		    return;
+            lprcat("\n");
+            act_just_pray();
+            return;
 
-                case 'm': 
-		    act_donation_pray();
-		    return;
+                case 'm':
+            act_donation_pray();
+            return;
 
-                case '\33':   
-		    return;
+                case '\33':
+            return;
                 };
 
-        case 'd': 
-	    lprcat(" desecrate");
-	    act_desecrate_altar();
-	    return;
+        case 'd':
+        lprcat(" desecrate");
+        act_desecrate_altar();
+        return;
 
         case 'i':
-        case '\33': 
-	    ignore();
-	    act_ignore_altar();
+        case '\33':
+        ignore();
+        act_ignore_altar();
             return;
         };
     }
@@ -81,8 +90,8 @@ othrone(arg)
             act_remove_gems( arg );
             return;
 
-        case 's':   
-            lprcat(" sit down");  
+        case 's':
+            lprcat(" sit down");
             act_sit_throne( arg );
             return;
 
@@ -94,7 +103,6 @@ othrone(arg)
 
 odeadthrone()
     {
-
     lprcat("\nDo you (s) sit down"); iopts();
     while (1)
       {
@@ -121,16 +129,16 @@ ochest()
       {
       switch(ttgetch())
         {
-	case 'o':
-	    lprcat(" open it");
-	    act_open_chest( playerx, playery );
-	    return;
+    case 'o':
+        lprcat(" open it");
+        act_open_chest( playerx, playery );
+        return;
 
-	case 't':
-	    lprcat(" take");
-	    if (take(OCHEST,iarg[playerx][playery])==0)
-		item[playerx][playery]=know[playerx][playery]=0;
-	    return;
+    case 't':
+        lprcat(" take");
+        if (take(OCHEST,iarg[playerx][playery])==0)
+        item[playerx][playery]=know[playerx][playery]=0;
+        return;
 
         case 'i':
         case '\33': ignore(); return;
@@ -303,11 +311,15 @@ enter()
             break ;
 
         case OENTRANCE:
-            newcavelevel( 1 );
+            /* place player in front of entrance on level 1.  newcavelevel()
+               prevents player from landing on a monster/object.
+            */
             playerx = 33 ;
             playery = MAXY - 2 ;
-            item[33][MAXY - 1] = know[33][MAXY - 1] = mitem[33][MAXY - 1] = 0 ;
-            draws( 0, MAXX, 0, MAXY ); 
+            newcavelevel( 1 );
+            know[33][MAXY - 1] = KNOWALL ;
+            mitem[33][MAXY - 1] = 0 ;
+            draws( 0, MAXX, 0, MAXY );
             showcell(playerx, playery);         /* to show around player */
             bot_linex() ;
             break ;
@@ -335,7 +347,6 @@ enter()
 */
 remove_gems ( )
     {
-    
     cursors();
     if (item[playerx][playery] == ODEADTHRONE)
         lprcat("\nThere are no gems to remove!");
@@ -356,7 +367,6 @@ remove_gems ( )
 */
 sit_on_throne( )
     {
-
     cursors();
     if (item[playerx][playery] == OTHRONE)
         act_sit_throne(0);
@@ -372,21 +382,6 @@ sit_on_throne( )
     }
 
 /*
-    For command mode.  Checks that the player is actually standing at a set
-    of stairs before letting him kick them.
-*/
-kick_stairs()
-    {
-    cursors();
-    if (item[playerx][playery] != OSTAIRSUP &&
-	item[playerx][playery] != OSTAIRSDOWN)
-	lprcat("\nI see no stairs to kick here!");
-
-    else
-	act_kick_stairs();
-    }
-
-/*
     For command mode.  Checks that player is actually standing at a set up
     up stairs or volcanic shaft.  
 */
@@ -394,16 +389,16 @@ up_stairs()
     {
     cursors();
     if (item[playerx][playery] == OSTAIRSDOWN)
-	lprcat("\nThe stairs don't go up!");
+        lprcat("\nThe stairs don't go up!");
 
     else if (item[playerx][playery] == OVOLUP)
-	act_up_shaft();
+        act_up_shaft();
 
     else if (item[playerx][playery] != OSTAIRSUP)
-	lprcat("\nI see no way to go up here!");
+        lprcat("\nI see no way to go up here!");
 
     else
-	act_up_stairs();
+        act_up_stairs();
     }
 
 /*
@@ -414,16 +409,16 @@ down_stairs()
     {
     cursors();
     if (item[playerx][playery] == OSTAIRSUP)
-	lprcat("\nThe stairs don't go down!");
+        lprcat("\nThe stairs don't go down!");
 
     else if (item[playerx][playery] == OVOLDOWN)
-	act_down_shaft();
+        act_down_shaft();
 
     else if (item[playerx][playery] != OSTAIRSDOWN)
-	lprcat("\nI see no way to go down here!");
+        lprcat("\nI see no way to go down here!");
 
     else
-	act_down_stairs();
+        act_down_stairs();
     }
 
 /*
@@ -454,6 +449,7 @@ open_something( )
         if ((tempc = getyn()) == 'y')
             {
             act_open_chest( playerx, playery );
+            dropflag = 1;     /* prevent player from picking back up if fail */
             return;
             }
         else if (tempc != 'n' )
@@ -515,11 +511,11 @@ close_something()
             break;
 
         case OOPENDOOR:
-	    if (mitem[x][y])
-		{
-	        lprcat("Theres a monster in the way!");
-	        return;
-		}
+            if (mitem[x][y])
+                {
+                lprcat("Theres a monster in the way!");
+                return;
+                }
             item[x][y] = OCLOSEDDOOR;
             know[x][y] = 0 ;
             iarg[x][y] = 0 ;
@@ -539,9 +535,9 @@ desecrate_altar()
     {
     cursors();
     if (item[playerx][playery] == OALTAR)
-	act_desecrate_altar();
+        act_desecrate_altar();
     else
-	lprcat("\nI see no altar to desecrate here!");
+        lprcat("\nI see no altar to desecrate here!");
     }
 
 /*
@@ -555,6 +551,242 @@ pray_at_altar()
     if (item[playerx][playery] != OALTAR)
         lprcat("\nI see no altar to pray at here!");
     else
-	act_donation_pray();
+    act_donation_pray();
     prayed = 1 ;
+    }
+
+/*
+    Identify objects for the player.
+*/
+void specify_object()
+    {
+    cursors();
+    lprcat("\n\nIdentify unknown object by cursor [ynq]?");
+    while (1)
+        {
+        switch (ttgetch())
+            {
+            case '\33':
+            case 'q':
+                return;
+                break;
+            case 'y':
+            case 'Y':
+                specify_obj_cursor();
+                return;
+                break;
+            case 'n':
+            case 'N':
+                specify_obj_nocurs();
+                return;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+/* perform the actions of identifying the object/monster associated with a
+   character typed by the user.  assumes cursors().
+*/
+static void specify_obj_nocurs()
+    {
+    register int i, j, flag;
+
+    lprcat("\nType object character:");
+    switch (i=ttgetch())
+        {
+        case '\33':
+        case '\n':
+            return;
+        case '@':
+            lprintf("\n@: %s", logname );
+            return;
+        case ' ':
+            lprintf("\n : An as-yet-unseen place in the dungeon" );
+            return;
+        default:
+            if ( i == floorc )
+                {
+                lprc('\n');
+                lprc(floorc);
+                lprintf(": the floor of the dungeon");
+                return;
+                }
+            flag = FALSE;
+            for (j=0; j < MAXMONST+8 ; j++)
+                if (i==monstnamelist[j])
+                    {
+                    lprintf("\n%c: %s", i, monster[j].name);
+                    flag = TRUE;
+                    }
+            /* check for spurious object character
+            */
+            if (i != '_')
+                for (j=0; j < MAXOBJECT; j++)
+                    if (i==objnamelist[j])
+                        {
+                        lprc('\n');
+                        if (boldobjects)
+                            {
+                            setbold();
+                            lprc(i);
+                            resetbold();
+                            }
+                        else
+                            lprc(i);
+                        lprintf(": %s", objectname[j]);
+                        flag = TRUE;
+                        }
+            if (!flag)
+                lprintf("\n%c: unknown monster/object", i );
+            return;
+            break;
+        }
+    }
+
+static void specify_obj_cursor()
+    {
+#if __STDC__
+    signed char objx, objy;
+#else
+    char objx, objy;
+#endif
+    int i;
+
+    lprcat("\nMove the cursor to an unknown item.");
+    lprcat("\n(For instructions type a ?)");
+
+    objx = playerx ;
+    objy = playery ;
+    cursor( objx+1, objy+1 );
+/* make cursor visible.
+*/
+    while (1)
+        {
+        switch(ttgetch())
+            {
+            case '?':
+                cursors();
+                lprcat("\nUse [hjklnbyu] to move the cursor to the unknown object.");
+                lprcat("\nType a . when the cursor is at the desired place.");
+                lprcat("\nType q, Return, or Escape to exit.");
+                cursor( objx+1, objy+1);
+                break;
+
+            case '\33':
+            case 'q':
+            case '\n':
+/* reset cursor
+*/
+                cursor( playerx+1, playery+1);
+                return;
+            case '.':
+/* reset cursor
+*/
+                cursor( playerx+1, playery+1);
+                cursors();
+
+                if ((objx == playerx) &&
+                    (objy == playery))
+                    {
+                    lprintf("\n@: %s", logname );
+                    return;
+                    }
+
+                i = mitem[objx][objy];
+                if ( i && ( know[objx][objy] & KNOWHERE))
+
+                    /* check for invisible monsters and not display
+                    */
+                    if ( monstnamelist[i] != floorc )
+                        {
+                        lprintf("\n%c: %s", monstnamelist[i], monster[i].name);
+                        return;
+                        }
+
+                /* handle floor separately so as not to display traps, etc.
+                */
+                i = item[objx][objy];
+                if ( i == 0 )
+                    {
+                    lprc('\n');
+                    lprc(floorc);
+                    lprintf(": the floor of the dungeon");
+                    return;
+                    }
+
+                if ( know[objx][objy] & HAVESEEN )
+                    {
+                    lprc('\n');
+                    if (boldobjects)
+                        {
+                        setbold();
+                        lprc(objnamelist[i]);
+                        resetbold();
+                        }
+                    else
+                        lprc(objnamelist[i]);
+                    lprintf(": %s", objectname[i]);
+                    return;
+                    }
+
+                lprintf("\n : An as-yet-unseen place in the dungeon" );
+                return;
+
+            case 'H':
+            case 'h':
+                move_cursor( &objx, &objy, 4);
+                break;
+            case 'J':
+            case 'j':
+                move_cursor( &objx, &objy, 1);
+                break;
+            case 'K':
+            case 'k':
+                move_cursor( &objx, &objy, 3);
+                break;
+            case 'L':
+            case 'l':
+                move_cursor( &objx, &objy, 2);
+                break;
+            case 'B':
+            case 'b':
+                move_cursor( &objx, &objy, 8);
+                break;
+            case 'N':
+            case 'n':
+                move_cursor( &objx, &objy, 7);
+                break;
+            case 'Y':
+            case 'y':
+                move_cursor( &objx, &objy, 6);
+                break;
+            case 'U':
+            case 'u':
+                move_cursor( &objx, &objy, 5);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+static void move_cursor( xx, yy, cdir )
+#if __STDC__
+signed char *xx ;
+signed char *yy ;
+#else
+char *xx ;
+char *yy ;
+#endif
+unsigned char cdir ;
+    {
+    *xx += diroffx[cdir];
+    *yy += diroffy[cdir];
+    if ( *yy < 0 ) *yy = MAXY-1;
+    if ( *yy > MAXY-1 ) *yy = 0;
+    if ( *xx < 0 ) *xx = MAXX-1;
+    if ( *xx > MAXX-1 ) *xx = 0;
+    cursor( *xx+1, *yy+1 );
     }

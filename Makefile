@@ -5,11 +5,6 @@
 #   BSD           - use BSD specific features (mostly timer and signal stuff)
 #   BSD4.1        - use BSD4.1 to avoid some 4.2 dependencies (must be used with
 #                   BSD above; do not mix with SYSV)
-#   DGK           - Don Kneller (ported Larn from Unix to MS-DOS) specific 
-#                   changes.  None are MS-DOS specific.  This option will be 
-#                   going away in a future version.
-#   DGK_MSDOS     - MS-DOS specific Don Kneller code.  This will be merged with
-#                   the MSDOS #define in a future version.
 #   DECRainbow    - DEC Rainbow specific display code.
 #   DOCHECKPOINTS - if not defined, checkpoint files are periodically written
 #                   by the larn process (no forking) if enabled in the .larnopts
@@ -25,27 +20,25 @@
 #   MAIL          - system supports mail messages (see bill.c).  Not useful on
 #                   non-networked machines.
 #   MSDOS         - MS-DOS specific code.
-#   OS2LARN       - OS/2 Specific code.
+#   OS2LARN       - OS/2 Specific code.  MSDOS must be defined.
 #   NONAP         - causes napms() to return immediately instead of delaying
 #                   n milliseconds.  This define may be needed on some systems
 #                   if the nap stuff does not work correctly (possible hang).
 #                   nap() is primarilly used to delay for effect when casting
 #                   missile type spells.
-#   NOVARARGS     - Define for systems that don't have varargs (a default 
+#   NOVARARGS     - Define for systems that don't have varargs (a default
 #                   varargs will be used).
-#   RFCMAIL       - mail messages are RFC822 conformant.  Must be used with 
+#   RFCMAIL       - mail messages are RFC822 conformant.  Must be used with
 #                   MAIL above.
 #   SAVEINHOME    - put save files in users HOME instead of LARNHOME (default)
-#   SIGTSTP       - define if your system provides the tty stop signal
-#   SIGVTALRM     - define if your system supports the virtual time alarm signal
 #   SYSV          - use system III/V (instead of V7) type ioctl calls
 #   TIMECHECK     - incorporates code to disable play during working hours (8-5)
 #   UIDSCORE      - Define to use user id's to manage scoreboard.  Leaving this
-#                   out will cause player id's from the file ".playerids" to 
-#                   be used instead.  (.playerids is created upon demand).  
+#                   out will cause player id's from the file ".playerids" to
+#                   be used instead.  (.playerids is created upon demand).
 #                   Only one entry per id # is allowed in each scoreboard
 #                   (winning & non-winning).
-#   VT100         - Compile for using vt100 family of terminals.  Omission of 
+#   VT100         - Compile for using vt100 family of terminals.  Omission of
 #                   this define will cause larn to use termcap.
 #   WIZID=xxx     - this is the userid (or playerid) of the wizard.  Default is
 #                   zero (superuser), which disables all wizard functions.
@@ -56,21 +49,103 @@
 #
 ############################################################################
 #
-OBJ=	action.o bill.o config.o create.o data.o diag.o display.o \
-	fortune.o global.o help.o io.o main.o monster.o \
-	moreobj.o movem.o msdos.o nap.o object.o regen.o savelev.o \
-	scores.o signal.o spells.o spheres.o store.o \
-	tok.o vms.o
-#
+# Configuration options
 #  LARNHOME is the directory where the larn data files will be installed.
+#  BINDIR is the directory where the larn binary will be installed.
 #
-CFLAGS=-DDGK -DSYSV -DEXTRA -DRFCMAIL -D'LARNHOME="/home/hymie/lib/larn/"'
+LARNHOME = #    The current directory unless changed in larn.opt
+BINDIR = c:\games
+CC= tcc
+OPTIONS = -DSYSV -DMSDOS -DNOVARARGS
 
-larn122: $(OBJ)
-	cc -o larn122 $(OBJ) -ltermcap
+########################################################################
+#
+OBJS= action.obj \
+    bill.obj \
+    config.obj \
+    create.obj \
+    data.obj   \
+    diag.obj   \
+    display.obj \
+    fgetlr.obj  \
+    fortune.obj \
+    global.obj  \
+    help.obj    \
+    iventory.obj\
+    io.obj      \
+    main.obj    \
+    monster.obj \
+    moreobj.obj \
+    movem.obj   \
+    msdos.obj   \
+    nap.obj     \
+    object.obj  \
+    regen.obj   \
+    savelev.obj \
+    scores.obj  \
+    signal.obj  \
+    spheres.obj \
+    spells.obj  \
+    store.obj   \
+    tgetent.obj \
+    tgetstr.obj \
+    tgoto.obj   \
+    tok.obj     \
+    tputs.obj   \
+    vms.obj
 
-.c.o: 
-	cc $(CFLAGS) -c $*.c 
+DOTFILES= larn.hlp larn.maz larn.ftn # larn.opt
 
-.c: header.h
+# merge literal strings
+# large memory model
+# include file directory pointer
+# use extended memory during compile
+#
+FLAGS= $(OPTIONS) -d -ml -I\TCPP\INCLUDE -Qx
 
+# case-sensitive link, no map file
+#
+larn: larn123.exe
+larn123.exe: $(OBJS)
+    tlink \TCPP\LIB\C0L @tlink.rsp, larn123,,\TCPP\LIB\EMU \TCPP\LIB\MATHL \TCPP\LIB\CL /c /x
+
+.c.obj:
+    $(CC) -c $(FLAGS) $<
+
+action.obj:   action.c   header.h larndefs.h monsters.h objects.h player.h
+bill.obj:     bill.c     header.h larndefs.h
+config.obj:   config.c   header.h larndefs.h
+create.obj:   create.c   header.h larndefs.h monsters.h objects.h player.h
+data.obj:     data.c     header.h            monsters.h objects.h
+diag.obj:     diag.c     header.h larndefs.h monsters.h objects.h player.h
+display.obj:  display.c  header.h larndefs.h            objects.h player.h
+fgetlr.obj:   fgetlr.c
+fortune.obj:  fortune.c  header.h
+global.obj:   global.c   header.h larndefs.h monsters.h objects.h player.h
+help.obj:     help.c     header.h larndefs.h
+iventory.obj: iventory.c header.h larndefs.h            objects.h player.h
+io.obj:       io.c       header.h larndefs.h
+main.obj:     main.c     header.h larndefs.h monsters.h objects.h player.h patchlev.h
+monster.obj:  monster.c  header.h larndefs.h monsters.h objects.h player.h
+moreobj.obj:  moreobj.c  header.h larndefs.h monsters.h objects.h player.h
+movem.obj:    movem.c    header.h larndefs.h monsters.h objects.h player.h
+msdos.obj:    msdos.c    header.h larndefs.h
+nap.obj:      nap.c
+object.obj:   object.c   header.h larndefs.h monsters.h objects.h player.h
+regen.obj:    regen.c    header.h larndefs.h monsters.h           player.h
+savelev.obj:  savelev.c  header.h larndefs.h
+scores.obj:   scores.c   header.h larndefs.h monsters.h objects.h player.h
+signal.obj:   signal.c   header.h larndefs.h
+spheres.obj:  spheres.c  header.h larndefs.h monsters.h objects.h player.h
+spells.obj:   spells.c   header.h larndefs.h monsters.h objects.h player.h
+store.obj:    store.c    header.h larndefs.h            objects.h player.h
+tgetent.obj:  tgetent.c
+tgetstr.obj:  tgetstr.c
+tgoto.obj:    tgoto.c
+tok.obj:      tok.c      header.h larndefs.h monsters.h objects.h player.h
+tputs.obj:    tputs.c
+vms.obj:      vms.c      header.h larndefs.h
+
+install:
+    exepack larn123.exe $(BINDIR)\larn123.exe
+    exemod $(BINDIR)\larn123.exe /max 1

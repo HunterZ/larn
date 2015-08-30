@@ -1,24 +1,28 @@
-/*  diag.c      Larn is copyrighted 1986 by Noah Morgan. */
+/* diag.c */
 #ifdef VMS
 # include <types.h>
 # include <stat.h>
 #else
 # include <sys/types.h>
 # include <sys/stat.h>
-#endif /*VMS*/
+#endif VMS
 
 #ifndef MSDOS
 # ifndef VMS
 #  include <sys/times.h>
   static struct tms cputime;
-# endif /*VMS*/
-#endif /*MSDOS*/
+# endif VMS
+#endif MSDOS
 
 #include "header.h"
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
+
 extern long int initialtime;
 extern int rmst,maxitm,lasttime;
 extern char nosignal;
-#define max(x,y) (((x)>(y))?(x):(y))
 
 /*
     ***************************
@@ -247,8 +251,8 @@ savegame(fname)
 # ifndef MSDOS
     times(&cputime);    /* get cpu time */
     c[CPUTIME] += (cputime.tms_utime+cputime.tms_stime)/60;
-# endif /*MSDOS*/
-#endif /*VMS*/
+# endif MSDOS
+#endif VMS
     lwrite((char*)&c[0],100*sizeof(long));
     lprint((long)gtime);        lprc(level);
     lprc(playerx);      lprc(playery);
@@ -272,7 +276,7 @@ savegame(fname)
     lwclose();  lastmonst[0] = 0;
 #ifndef VT100
     setscroll();
-#endif /*VT100*/
+#endif VT100
     lcreat((char*)0);  nosignal=0;
     return(0);
     }
@@ -355,8 +359,8 @@ restoregame(fname)
 # ifndef MSDOS
     i = lrint();  /* inode # */
     if (i && (filetimes.st_ino!=i)) fsorry();
-# endif /*MSDOS*/
-#endif /*VMS*/
+# endif MSDOS
+#endif VMS
     lrclose();
     if (strcmp(fname,ckpfile) == 0)
         {

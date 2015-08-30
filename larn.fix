@@ -1,3 +1,92 @@
+This is a list of the fixes and enhancements made to create Larn V12.3 from
+Larn 12.2.  SPOILER ALERT!
+
+1. The player's position is now marked with an ampersand, instead of just with
+   the cursor.
+
+2. The 'G' command ("give the stairs a kick") has been removed.  Since you can
+   tell the stairs apart (as opposed to the original Larn 12.0), this command
+   doesn't make sense anymore.
+
+3. The 'V' command has been removed and its information incorporated into the
+   'v' command.
+
+4. An idea from Ultra-Larn: when the player enters the 5th level branch of the
+   bank after teleporting, the '?' in the level display is changed to a '5'.
+
+5. Larn -? can be used to print command line arguments.
+
+6. The player is no longer positioned near the shaft of the volcano when
+   climbing down to the first volcano level.
+
+7. A couple of pauses were eliminated, making some actions very fast now.
+
+8. The player can no longer escape punishment by donating more gold then he
+   possesses when praying at the altar.
+
+9. When performing an action and doing an inventory list, a character typed at
+   the "press space for more" prompt is taken as the inventory item to select.
+   That is, if you say 'q' for quaff, '*' to see all the potions you can quaff,
+   Larn used to require that you type a space before you could select a potion,
+   causing the list to disappear.  You can now select an item in the list while
+   the list is displayed.  You can also use Escape and Return in place of a
+   space.
+
+10. The spells/potions/scrolls inventory ('I' command) are now sorted.
+
+11. The '/' command has been added, to allow the user to identify objects.
+    You can choose to either type a character or move the cursor around to
+    select a character to identify (a la Hack).  The only limitation is that
+    characters that have several objects (weapons, gems, dragons, etc) display
+    all the matching object names.
+
+12. The potion of gold detection has been changed into the potion of object
+    detection.  It will find scrolls, books, potions, weapons, armor, and
+    artifacts.  If you have an old savefile, all gold detection potions get
+    turned into object detection potions.
+
+13. It is now possible to find rings of cleverness in the dungeon.
+
+14. It is now possible for killed monsters to drop splint mail, battle axes,
+    cookies, and rings of cleverness.
+
+15. Source cleanup, reduction in the size of the executable and the memory
+    required, performance improvements.
+
+16. Fix problems with positioning the player when entering or leaving the
+    dungeon.  You will no longer find yourself on the opposite side of the
+    town level when leaving the dungeon.  You will no longer be able to enter
+    the dungeon on top of a monster.
+
+17. Prevented monsters from moving into the dungeon entrance, causing them to
+    be destroyed when the player exits the dungeon.  The top dungeon level now
+    has the dungeon entrance character where there used to be a space.
+
+18. If you are standing on a chest and try and open it, you will no longer pick
+    it up immediately if you have auto-pickup on.
+
+19. Added the capability to add comments to the options file.
+
+20. Fixed the bug where a missing options file prevented anything from being
+    displayed.
+
+21. There is now a visible repeat count when greater than 10 (a la Hack).  You
+    can also edit the repeat count.
+
+22. The 'm' command has been added to move onto an object without picking it
+    up (a la Hack).
+
+23. Fixed a problem where the a) item in the inventory couldn't be dulled.
+
+25. Allow a space between '-o' and the option filename.
+
+26. Fix possible errors when looking at the inventory.
+
+27. Prevent the player from changing levels into a level from the maze file with
+    a space that had no means of exit.
+
+================================================================================
+
 This is a list of the fixes and enhancements made to create Larn V12.2 from
 Larn 12.0.  SPOILER ALERT!
 

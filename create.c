@@ -1,8 +1,10 @@
-/*  create.c        Larn is copyrighted 1986 by Noah Morgan. */
+/* create.c */
 #include "header.h"
-extern char spelknow[],larnlevels[];
-extern char beenhere[],wizard,level;
-extern short oldx,oldy;
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
+
 /*
     makeplayer()
 
@@ -26,13 +28,11 @@ makeplayer()
         ivenarg[1]=ivenarg[0]=c[WEAR]=0;  c[WIELD]=1;
         }
     playerx=rnd(MAXX-2);    playery=rnd(MAXY-2);
-    oldx=0;         oldy=25;
-    gtime=0;            /*  time clock starts at zero   */
-    cbak[SPELLS] = -50;
+    regen_bottom = TRUE ;
     for (i=0; i<6; i++)  c[i]=12; /* make the attributes, ie str, int, etc. */
     recalc();
     }
-
+
 /*
     newcavelevel(level)
     int level;
@@ -49,24 +49,26 @@ newcavelevel(x)
     register int i,j;
     if (beenhere[level]) savelevel();   /* put the level back into storage  */
     level = x;              /* get the new level and put in working storage */
-	if (beenhere[x])
-		{
-		getlevel();
-		sethp(0);
-		checkgen();
-		return;
-		}
+    if (beenhere[x])
+        {
+        getlevel();
+        sethp(0);
+        positionplayer();
+        checkgen();
+        return;
+        }
 
-	/* fill in new level
-	*/
-	for (i=0; i<MAXY; i++)
-		for (j=0; j<MAXX; j++)
-			know[j][i]=mitem[j][i]=0;
-	makemaze(x);
-	makeobject(x);
-	beenhere[x]=1;
-	sethp(1);
-	checkgen();   /* wipe out any genocided monsters */
+    /* fill in new level
+    */
+    for (i=0; i<MAXY; i++)
+        for (j=0; j<MAXX; j++)
+            know[j][i]=mitem[j][i]=0;
+    makemaze(x);
+    makeobject(x);
+    beenhere[x]=1;
+    sethp(1);
+    positionplayer();
+    checkgen();   /* wipe out any genocided monsters */
 
 #if WIZID
     if (wizard || x==0)
@@ -97,7 +99,7 @@ static makemaze(k)
     if (k==0)  tmp=0;  else tmp=OWALL;
     for (i=0; i<MAXY; i++)  for (j=0; j<MAXX; j++)  item[j][i]=tmp;
     if (k==0) return;       eat(1,1);
-    if (k==1) item[33][MAXY-1]=0;   /* exit from dungeon */
+    if (k==1) item[33][MAXY-1] = OENTRANCE;
 
 /*  now for open spaces -- not on level 10  */
     if (k != MAXLEVEL-1)
@@ -317,19 +319,26 @@ static makeobject(j)
 /*  make the fixed objects in the maze STAIRS   */
     if ((j>0) && (j != MAXLEVEL-1) && (j != MAXLEVEL+MAXVLEVEL-1))
         fillroom(OSTAIRSDOWN,0);
-	if ((j > 1) && (j != MAXLEVEL))
-		fillroom(OSTAIRSUP,0);
+    if ((j > 1) && (j != MAXLEVEL))
+        fillroom(OSTAIRSUP,0);
 
 /*  make the random objects in the maze     */
 
-    fillmroom(rund(3),OBOOK,j);             fillmroom(rund(3),OALTAR,0);
-    fillmroom(rund(3),OSTATUE,0);           fillmroom(rund(3),OPIT,0);
-    fillmroom(rund(3),OFOUNTAIN,0);         fillmroom( rnd(3)-2,OIVTELETRAP,0);
-    fillmroom(rund(2),OTHRONE,0);           fillmroom(rund(2),OMIRROR,0);
-    fillmroom(rund(2),OTRAPARROWIV,0);      fillmroom( rnd(3)-2,OIVDARTRAP,0);
+    fillmroom(rund(3),OBOOK,j);             
+    fillmroom(rund(3),OALTAR,0);
+    fillmroom(rund(3),OSTATUE,0);           
+    fillmroom(rund(3),OPIT,0);
+    fillmroom(rund(3),OFOUNTAIN,0);         
+    fillmroom( rnd(3)-2,OIVTELETRAP,0);
+    fillmroom(rund(2),OTHRONE,0);           
+    fillmroom(rund(2),OMIRROR,0);
+    fillmroom(rund(2),OTRAPARROWIV,0);      
+    fillmroom( rnd(3)-2,OIVDARTRAP,0);
     fillmroom(rund(3),OCOOKIE,0);
-    if (j==1) fillmroom(1,OCHEST,j);
-        else fillmroom(rund(2),OCHEST,j);
+    if (j==1) 
+        fillmroom(1,OCHEST,j);
+    else 
+        fillmroom(rund(2),OCHEST,j);
     if ((j != MAXLEVEL-1) && (j != MAXLEVEL+MAXVLEVEL-1))
         fillmroom(rund(2),OIVTRAPDOOR,0);
     if (j<=10)
@@ -345,7 +354,8 @@ static makeobject(j)
         fillroom(OSCROLL,newscroll());  /*  make a SCROLL   */
     for (i=0; i<rnd(12)+11; i++)
         fillroom(OGOLDPILE,12*rnd(j+1)+(j<<3)+10); /* make GOLD */
-    if (j==5)   fillroom(OBANK2,0);             /*  branch office of the bank */
+    if (j==5)   
+        fillroom(OBANK2,0);         /* branch office of the bank */
     froom(2,ORING,0);               /* a ring mail          */
     froom(1,OSTUDLEATHER,0);        /* a studded leather    */
     froom(3,OSPLINT,0);             /* a splint mail        */
@@ -354,28 +364,30 @@ static makeobject(j)
     froom(5,OLONGSWORD,rund(3));    /* a long sword         */
     froom(5,OFLAIL,rund(3));        /* a flail              */
     froom(4,OREGENRING,rund(3));    /* ring of regeneration */
-    froom(1,OPROTRING,rund(3)); /* ring of protection   */
-    froom(2,OSTRRING,4);        /* ring of strength + 4 */
-    froom(7,OSPEAR,rnd(5));     /* a spear              */
-    froom(3,OORBOFDRAGON,0);    /* orb of dragon slaying*/
-    froom(4,OSPIRITSCARAB,0);       /*scarab of negate spirit*/
+    froom(1,OPROTRING,rund(3));     /* ring of protection   */
+    froom(2,OSTRRING,1+rnd(3));     /* ring of strength     */
+    froom(7,OSPEAR,rnd(5));         /* a spear              */
+    froom(3,OORBOFDRAGON,0);        /* orb of dragon slaying*/
+    froom(4,OSPIRITSCARAB,0);       /* scarab of negate spirit*/
     froom(4,OCUBEofUNDEAD,0);       /* cube of undead control   */
-    froom(2,ORINGOFEXTRA,0);    /* ring of extra regen      */
+    froom(2,ORINGOFEXTRA,0);        /* ring of extra regen      */
     froom(3,ONOTHEFT,0);            /* device of antitheft      */
-    froom(2,OSWORDofSLASHING,0); /* sword of slashing */
+    froom(2,OSWORDofSLASHING,0);    /* sword of slashing */
     if (c[BESSMANN]==0)
         {
-        froom(4,OHAMMER,0);/*Bessman's flailing hammer*/ c[BESSMANN]=1;
+        froom(4,OHAMMER,0);/*Bessman's flailing hammer*/
+        c[BESSMANN]=1;
         }
     if (c[HARDGAME]<3 || (rnd(4)==3))
         {
         if (j>3)
             {
-            froom(3,OSWORD,3);      /* sunsword + 3         */
+            froom(3,OSWORD,3);        /* sunsword + 3         */
             froom(5,O2SWORD,rnd(4));  /* a two handed sword */
-            froom(3,OBELT,4);           /* belt of striking     */
-            froom(3,OENERGYRING,3); /* energy ring          */
-            froom(4,OPLATE,5);      /* platemail + 5        */
+            froom(3,OBELT,4);         /* belt of striking     */
+            froom(3,OENERGYRING,3);   /* energy ring          */
+            froom(4,OPLATE,5);        /* platemail + 5        */
+            froom(3,OCLEVERRING,1+rnd(2));  /* ring of cleverness */
             }
         }
     }
@@ -458,7 +470,6 @@ static sethp(flg)
     if (level==0) { c[TELEFLAG]=0; return; } /* if teleported and found level 1 then know level we are on */
     if (flg)   j = rnd(12) + 2 + (level>>1);   else   j = (level>>1) + 1;
     for (i=0; i<j; i++)  fillmonst(makemonst(level));
-    positionplayer();
     }
 
 /*

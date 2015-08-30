@@ -5,6 +5,10 @@
   movsphere()        Function to look for and move spheres of annihilation
 */
 #include "header.h"
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
 
 #define min(x,y) (((x)>(y))?(y):(x))
 #define max(x,y) (((x)>(y))?(x):(y))
@@ -34,11 +38,7 @@ newsphere(x,y,dir,life)
         }
     if ((m=mitem[x][y]) >= DEMONLORD+4) /* demons dispel spheres */
         {
-# ifdef DGK
         show1cell(x,y);     /* show the demon (ha ha) */
-# else
-        know[x][y]=1; show1cell(x,y);   /* show the demon (ha ha) */
-# endif
         cursors(); lprintf("\nThe %s dispels the sphere!",monster[m].name);
         beep(); rmsphere(x,y);  /* remove any spheres that are here */
         return(c[SPHCAST]);

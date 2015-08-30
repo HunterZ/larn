@@ -1,4 +1,4 @@
-/*  store.c     Larn is copyrighted 1986 by Noah Morgan. */
+/* store.c */
 /*
 This module contains data and routines to handle buildings at the home level.
 Routines:
@@ -21,10 +21,13 @@ Routines:
   otradepost    trading post main function
   cnsitm
   olrs          larn revenue service function
-
 */
 
 #include "header.h"
+#include "larndefs.h"
+#include "objects.h"
+#include "player.h"
+
 static int dndcount=0,dnditm=0;
 
 /* number of items in the dnd inventory table   */
@@ -152,19 +155,19 @@ struct _itm itm[90] = {
     for the college of larn
  */
 char course[26];    /*  the list of courses taken   */
-char coursetime[] = { 10, 15, 10, 20, 10, 10, 10, 5 };
+static char coursetime[] = { 10, 15, 10, 20, 10, 10, 10, 5 };
 
 /*
     function for the dnd store
  */
-dnd_2hed()
+static dnd_2hed()
     {
     lprcat("Welcome to the Larn Thrift Shoppe.  We stock many items explorers find useful\n");
     lprcat(" in their adventures.  Feel free to browse to your hearts content.\n");
     lprcat("Also be advised, if you break 'em, you pay for 'em.");
     }
 
-dnd_hed()
+static dnd_hed()
     {
     register int i;
     for (i=dnditm; i<26+dnditm; i++)    dnditem(i);
@@ -182,7 +185,7 @@ dndstore()
     lprcat("\n\nThe Larn Revenue Service has ordered us to not do business with tax evaders.\n"); beep();
     lprintf("They have also told us that you owe %d gp in back taxes, and as we must\n",(long)outstanding_taxes);
     lprcat("comply with the law, we cannot serve you at this time.  Soo Sorry.\n");
-    cursors();  
+    cursors();
     lprcat("\nPress "); standout("escape"); lprcat(" to leave: "); lflush();
     i=0;
     while (i!='\33') i=ttgetch();
@@ -263,7 +266,7 @@ static dnditem(i)
 /*
     function to display the header info for the school
  */
-sch_hed()
+static sch_hed()
     {
     clear();
     lprcat("The College of Larn offers the exciting opportunity of higher education to\n");
@@ -365,7 +368,7 @@ oschool()
               {
               gtime += time_used;
               course[i-'a']++;  /*  remember that he has taken that course  */
-              c[HP] = c[HPMAX];  c[SPELLS] = c[SPELLMAX]; /* he regenerated */ 
+              c[HP] = c[HPMAX];  c[SPELLS] = c[SPELLMAX]; /* he regenerated */
 
               if (c[BLINDCOUNT])    c[BLINDCOUNT]=1;  /* cure blindness too!  */
               if (c[CONFUSE])       c[CONFUSE]=1;   /*  end confusion   */
@@ -387,7 +390,10 @@ obank()
 obank2()
     {
     banktitle("Welcome to the 5th level branch office of the First National Bank of Larn.");
-    c[TELEFLAG]=0; /* if teleported and found the bank then know level we are on */
+    /* because we state the level in the title, clear the '?' in the
+       level display at the bottom, if the user teleported.
+    */
+    c[TELEFLAG] = 0;
     }
 static banktitle(str)
     char *str;
@@ -401,7 +407,7 @@ static banktitle(str)
         lprintf("levied taxes have been paid.  They have also told us that you owe %d gp in\n",(long)outstanding_taxes);
         lprcat("taxes, and we must comply with them. We cannot serve you at this time.  Sorry.\n");
         lprcat("We suggest you go to the LRS office and pay your taxes.\n");
-        cursors();  
+        cursors();
         lprcat("\nPress "); standout("escape"); lprcat(" to leave: "); lflush();
         i=0;
         while (i!='\33') i=ttgetch();
@@ -429,7 +435,7 @@ ointerest()
     lasttime = (gtime/100)*100;
     }
 
-obanksub()
+static obanksub()
     {
     short gemorder[26];  /* the reference to screen location for each gem */
     long gemvalue[26];   /* the appraisal of the gems */
@@ -553,8 +559,8 @@ static otradhead()
     lprcat("Here are the items we would be willing to buy from you:\n");
     }
 
-short tradorder[26];   /* screen locations for trading post inventory */
-otradiven()
+static short tradorder[26];   /* screen locations for trading post inventory */
+static otradiven()
     {
     int i,j ;
 
@@ -610,7 +616,7 @@ otradiven()
        tradorder[i] = 0;  /* make sure order array is clear */
     }
 
-cleartradiven( i )
+static cleartradiven( i )
 int i ;
     {
     int j;
@@ -677,15 +683,15 @@ otradepost()
            if (iven[isub]==ODIAMOND ||
                iven[isub]==ORUBY    ||
                iven[isub]==OEMERALD ||
-	       iven[isub]==OSAPPHIRE )
-	       value = 20L * (ivenarg[isub] & 255);
-	   else if (iven[isub]==OLARNEYE)
-	       {
-	       value = 50000 - (((gtime*7) / 100) * 20 );
-	       if (value < 10000)
-		   value = 10000;
-	       }
-	   else
+           iven[isub]==OSAPPHIRE )
+           value = 20L * (ivenarg[isub] & 255);
+       else if (iven[isub]==OLARNEYE)
+           {
+           value = 50000 - (((gtime*7) / 100) * 20 );
+           if (value < 10000)
+           value = 10000;
+           }
+       else
                {
                /* find object in itm[] list for price info */
                found = MAXITM ;
@@ -738,7 +744,7 @@ otradepost()
         }       /* end of outer while */
     }       /* end of routine */
 
-cnsitm()
+static cnsitm()
     {
     lprcat("\nSorry, we can't accept unidentified objects.");
     nap(2000);

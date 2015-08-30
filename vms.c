@@ -17,34 +17,34 @@
  * fool the program.
  */
 vread(fd, buf, size)
-int	fd;
-char	*buf;
-int	size;
+int fd;
+char    *buf;
+int size;
 {
-	int	csize;		/* cumulative size	*/
-	int	isize;		/* incremental size	*/
+    int csize;      /* cumulative size  */
+    int isize;      /* incremental size */
 
-	csize = 0;
-	do {
-		isize = read(fd, buf, size);
-		if (isize > 0) {
-			csize += isize;
-			buf   += isize;
-			size  -= isize;
-		}
-	} while (isize > 0);
-	return (csize);
+    csize = 0;
+    do {
+        isize = read(fd, buf, size);
+        if (isize > 0) {
+            csize += isize;
+            buf   += isize;
+            size  -= isize;
+        }
+    } while (isize > 0);
+    return (csize);
 }
 
 #else VMS
 
-#ifndef vread		/* if not done as a macro in header.h */
+#ifndef vread       /* if not done as a macro in header.h */
 vread(fd, buf, size)
-int	fd;
-char	*buf;
-int	size;
+int fd;
+char    *buf;
+int size;
 {
-	return (read(fd, buf, size));
+    return (read(fd, buf, size));
 }
 #endif vread
 #endif VMS
@@ -57,21 +57,21 @@ int	size;
  */
 long
 oneliner(cstr)
-char	*cstr;
+char    *cstr;
 {
-	struct	dsc$descriptor	cdsc;
-	register long		sts;
-	register long		pstat;
+    struct  dsc$descriptor  cdsc;
+    register long       sts;
+    register long       pstat;
 
-	cdsc.dsc$a_pointer = cstr;
-	cdsc.dsc$w_length  = strlen(cstr);
-	cdsc.dsc$b_dtype   = DSC$K_DTYPE_T;
-	cdsc.dsc$b_class   = DSC$K_CLASS_S;
-	sts = LIB$SPAWN(&cdsc, 0, 0, 0, 0, 0, &pstat, 0, 0, 0, 0, 0);
-	if (sts != SS$_NORMAL)
-		return (sts);
-	else
-		return (pstat);
+    cdsc.dsc$a_pointer = cstr;
+    cdsc.dsc$w_length  = strlen(cstr);
+    cdsc.dsc$b_dtype   = DSC$K_DTYPE_T;
+    cdsc.dsc$b_class   = DSC$K_CLASS_S;
+    sts = LIB$SPAWN(&cdsc, 0, 0, 0, 0, 0, &pstat, 0, 0, 0, 0, 0);
+    if (sts != SS$_NORMAL)
+        return (sts);
+    else
+        return (pstat);
 }
 
 /*
@@ -93,14 +93,14 @@ struct
                                    { "\x1BOw", "y" },      /* KP7 */
                                    { "\x1BOx", "k" },      /* KP8 */
                                    { "\x1BOy", "u" },      /* KP9 */
-				   { "\x1BOn", "." },      /* KP. */
-				   { "\x1BOl", "," },      /* KP, */
-				   { "\x1B[A", "K" },      /* uparrow */
-				   { "\x1B[B", "J" },      /* downarrow*/
-				   { "\x1B[C", "L" },      /* right arrow */
-				   { "\x1B[D", "H" },      /* left arrow */
-				   { "\x1BOP", "m" },      /* PF1 */
-				   { "\x1BOS", "@" },      /* PF4 */
+                   { "\x1BOn", "." },      /* KP. */
+                   { "\x1BOl", "," },      /* KP, */
+                   { "\x1B[A", "K" },      /* uparrow */
+                   { "\x1B[B", "J" },      /* downarrow*/
+                   { "\x1B[C", "L" },      /* right arrow */
+                   { "\x1B[D", "H" },      /* left arrow */
+                   { "\x1BOP", "m" },      /* PF1 */
+                   { "\x1BOS", "@" },      /* PF4 */
                                    { "\x1B[23~", "\x1B" }  /* (ESC) */
                                  };
 
@@ -120,7 +120,7 @@ vms_ttgetch()
     static char    *bufptr = buffer;
     static char    *bufend = buffer;
 
-    lflush();		/* be sure output buffer is flushed */
+    lflush();       /* be sure output buffer is flushed */
 
     /* Read the first char from the user
     */
@@ -142,8 +142,8 @@ vms_ttgetch()
         {
         incount = vmsread( bufend, (BUFFLEN - 1), 0 );
         if (incount >= 0)
-	    bufend += incount ;
-	}
+        bufend += incount ;
+    }
 
     /* Make sure the buffer is zero-terminated, since vmsread() 
        doesn't zero-terminate the characters read.
@@ -157,10 +157,10 @@ vms_ttgetch()
     for ( j = 0; j < MAX_KP_CONV ; j++ )
         if (strcmp( &buffer, keypad_conv[j].inp_str ) == 0 )
             {
-	    strcpy( &buffer, keypad_conv[j].out_str );
-	    bufend = &buffer[strlen(&buffer)];
-	    break;
-	    }
+        strcpy( &buffer, keypad_conv[j].out_str );
+        bufend = &buffer[strlen(&buffer)];
+        break;
+        }
 
     /* If after running through the table the first character is still
        ESCAPE, then we probably didn't get a match.  Force unsupported
@@ -170,8 +170,8 @@ vms_ttgetch()
     */
     if (*bufptr == '\x1B' )
         {
-	bufend = &buffer[1] ;
-	}
+    bufend = &buffer[1] ;
+    }
     *bufend = '\0' ;
 
     if (*bufptr == '\r')

@@ -1,8 +1,5 @@
 /*
- *  monster.c       Larn is copyrighted 1986 by Noah Morgan.
- *
- *  This file contains the following functions:
- *  ----------------------------------------------------------------------------
+ *  monster.c
  *
  *  createmonster(monstno)      Function to create a monster next to the player
  *      int monstno;
@@ -45,6 +42,11 @@
  *
  */
 #include "header.h"
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
+
 #include <ctype.h>
 #define min(x,y) (((x)>(y))?(y):(x))
 #define max(x,y) (((x)>(y))?(x):(y))
@@ -75,12 +77,8 @@ createmonster(mon)
             {
             mitem[x][y] = mon;
             hitp[x][y] = monster[mon].hitpoints;
-# ifdef DGK
             stealth[x][y]=0;
             know[x][y] &= ~KNOWHERE;
-# else
-            stealth[x][y]=know[x][y]=0;
-# endif
             switch(mon)
                 {
                 case ROTHE: case POLTERGEIST: case VAMPIRE: stealth[x][y]=1;
@@ -224,7 +222,7 @@ hitmonster(x,y)
     lprcat(" the "); lprcat(lastmonst);
     if (flag)   /* if the monster was hit */
       if ((monst==RUSTMONSTER) || (monst==DISENCHANTRESS) || (monst==CUBE))
-        if (c[WIELD]>0)
+        if (c[WIELD]>=0)
           if (ivenarg[c[WIELD]] > -10)
             {
             lprintf("\nYour weapon is dulled by the %s",lastmonst); beep();
@@ -314,15 +312,8 @@ hitplayer(x,y)
     if (c[NEGATESPIRIT] || c[SPIRITPRO])  if ((mster ==POLTERGEIST) || (mster ==SPIRITNAGA))  return;
 /*  if undead and cube of undead control    */
     if (c[CUBEofUNDEAD] || c[UNDEADPRO]) if ((mster ==VAMPIRE) || (mster ==WRAITH) || (mster ==ZOMBIE)) return;
-# ifdef DGK
     if ((know[x][y] & KNOWHERE) == 0)
         show1cell(x,y);
-# else
-    if ((know[x][y]&1) == 0)
-        {
-        know[x][y]=1; show1cell(x,y);
-        }
-# endif
     bias = (c[HARDGAME]) + 1;
     hitflag = hit2flag = hit3flag = 1;
     yrepcount=0;
@@ -345,21 +336,13 @@ hitplayer(x,y)
     tmp = 0;
     if (monster[mster].attack>0)
       if (((dam + bias + 8) > c[AC]) || (rnd((int)((c[AC]>0)?c[AC]:1))==1))
-#ifdef	OS2LARN
-        { if (spattack(monster[mster].attack,x,y)) { flushallkbd(); return; }
-#else
-        { if (spattack(monster[mster].attack,x,y)) { flushall(); return; }
-#endif
+        { if (spattack(monster[mster].attack,x,y)) { lflushall(); return; }
           tmp = 1;  bias -= 2; cursors(); }
     if (((dam + bias) > c[AC]) || (rnd((int)((c[AC]>0)?c[AC]:1))==1))
         {
         lprintf("\n  The %s hit you ",lastmonst);   tmp = 1;
         if ((dam -= c[AC]) < 0) dam=0;
-#ifdef	OS2LARN
-        if (dam > 0) { losehp(dam); bottomhp(); flushallkbd(); }
-#else
-        if (dam > 0) { losehp(dam); bottomhp(); flushall(); }
-#endif
+        if (dam > 0) { losehp(dam); bottomhp(); lflushall(); }
         }
     if (tmp == 0)  lprintf("\n  The %s missed ",lastmonst);
     }
@@ -397,7 +380,10 @@ static dropsomething(monst)
 dropgold(amount)
     register int amount;
     {
-    if (amount > 250) createitem(OMAXGOLD,amount/100);  else  createitem(OGOLDPILE,amount);
+    if (amount > 250) 
+        createitem(OMAXGOLD,amount/100);  
+    else  
+        createitem(OGOLDPILE,amount);
     }
 
 /*
@@ -414,8 +400,10 @@ something(level)
     register int j;
     int i;
     if (level<0 || level>MAXLEVEL+MAXVLEVEL) return;    /* correct level? */
-    if (rnd(101)<8) something(level); /* possibly more than one item */
-    j = newobject(level,&i);        createitem(j,i);
+    if (rnd(101)<8)
+        something(level); /* possibly more than one item */
+    j = newobject(level,&i);
+    createitem(j,i);
     }
 
 /*
@@ -427,37 +415,55 @@ something(level)
  *  Enter with the cave level and a pointer to the items arg
  */
 static char nobjtab[] = { 0, OSCROLL,  OSCROLL,  OSCROLL,  OSCROLL, OPOTION,
-    OPOTION, OPOTION, OPOTION, OGOLDPILE, OGOLDPILE, OGOLDPILE, OGOLDPILE, 
+    OPOTION, OPOTION, OPOTION, OGOLDPILE, OGOLDPILE, OGOLDPILE, OGOLDPILE,
     OBOOK, OBOOK, OBOOK, OBOOK, ODAGGER, ODAGGER, ODAGGER, OLEATHER, OLEATHER,
     OLEATHER, OREGENRING, OPROTRING, OENERGYRING, ODEXRING, OSTRRING, OSPEAR,
-    OBELT, ORING, OSTUDLEATHER, OSHIELD, OFLAIL, OCHAIN, O2SWORD, OPLATE,
-    OLONGSWORD };
+    OBELT, ORING, OSTUDLEATHER, OSHIELD, OCOOKIE, OFLAIL, OCHAIN, OBATTLEAXE,
+    OSPLINT, O2SWORD, OCLEVERRING, OPLATE, OLONGSWORD };
 
 newobject(lev,i)
     register int lev,*i;
     {
-    register int tmp=32,j;
+    register int tmp=33,j;
     if (level<0 || level>MAXLEVEL+MAXVLEVEL) return(0); /* correct level? */
-    if (lev>6) tmp=37; else if (lev>4) tmp=35; 
+    if (lev>6) tmp=41; else if (lev>4) tmp=39;
     j = nobjtab[tmp=rnd(tmp)];  /* the object type */
     switch(tmp)
         {
-        case 1: case 2: case 3: case 4: *i=newscroll(); break;
-        case 5: case 6: case 7: case 8: *i=newpotion(); break;
-        case 9: case 10: case 11: case 12: *i=rnd((lev+1)*10)+lev*10+10; break;
-        case 13: case 14: case 15: case 16: *i=lev; break;
-        case 17: case 18: case 19: if (!(*i=newdagger()))  return(0);  break;
-        case 20: case 21: case 22: if (!(*i=newleather()))  return(0);  break;
-        case 23: case 32: case 35: *i=rund(lev/3+1); break;
-        case 24: case 26: *i=rnd(lev/4+1);   break;
-        case 25: *i=rund(lev/4+1); break;
-        case 27: *i=rnd(lev/2+1);   break;
-        case 30: case 33: *i=rund(lev/2+1);   break;
-        case 28: *i=rund(lev/3+1); if (*i==0) return(0); break;
-        case 29: case 31: *i=rund(lev/2+1); if (*i==0) return(0); break;
-        case 34: *i=newchain();     break;
-        case 36: *i=newplate();     break;
-        case 37: *i=newsword();     break; 
+        case 1: case 2: case 3: case 4:  /* scroll */
+            *i=newscroll(); break;
+        case 5: case 6: case 7: case 8:  /* potion */
+            *i=newpotion(); break;
+        case 9: case 10: case 11: case 12:  /* gold */
+            *i=rnd((lev+1)*10)+lev*10+10; break;
+        case 13: case 14: case 15: case 16:  /* book */
+            *i=lev; break;
+        case 17: case 18: case 19:   /* dagger */
+            if (!(*i=newdagger()))  return(0);  break;
+        case 20: case 21: case 22:   /* leather armor */
+            if (!(*i=newleather()))  return(0);  break;
+        case 23: case 32: case 38:   /* regen ring, shield, 2-hand sword */
+            *i=rund(lev/3+1); break;
+        case 24: case 26:            /* prot ring, dexterity ring */
+            *i=rnd(lev/4+1);   break;
+        case 25:                     /* energy ring */
+            *i=rund(lev/4+1); break;
+        case 27: case 39:            /* strength ring, cleverness ring */
+            *i=rnd(lev/2+1);   break;
+        case 30: case 34:           /* ring mail, flail */
+            *i=rund(lev/2+1);   break;
+        case 28: case 36:           /* spear, battleaxe */
+            *i=rund(lev/3+1); if (*i==0) return(0); break;
+        case 29: case 31: case 37:  /* belt, studded leather, splint */
+            *i=rund(lev/2+1); if (*i==0) return(0); break;
+        case 33:                    /* fortune cookie */
+            *i=0; break;
+        case 35:                    /* chain mail */
+            *i=newchain();     break;
+        case 40:                    /* plate mail */
+            *i=newplate();     break;
+        case 41:                    /* longsword */
+            *i=newsword();     break;
         }
     return(j);
     }
@@ -495,8 +501,14 @@ newobject(lev,i)
  *  format is: { armor type , minimum attribute 
  */
 #define ARMORTYPES 6
-static char rustarm[ARMORTYPES][2] = { OSTUDLEATHER,-2, ORING,-4, OCHAIN,-5,
-    OSPLINT,-6,     OPLATE,-8,      OPLATEARMOR,-9  };
+#if __STDC__
+static signed char rustarm[ARMORTYPES][2] =
+#else
+static char rustarm[ARMORTYPES][2] =
+#endif
+    { OSTUDLEATHER,-2, ORING,      -4,
+      OCHAIN,      -5, OSPLINT,    -6,
+      OPLATE,      -8, OPLATEARMOR,-9  };
 static char spsel[] = { 1, 2, 3, 5, 6, 8, 9, 11, 13, 14 };
 static spattack(x,xx,yy)
     int x,xx,yy;
@@ -581,7 +593,7 @@ static spattack(x,xx,yy)
                         {
                         if ((ivenarg[i] -= 3)<0) ivenarg[i]=0;
                         lprintf("\nThe %s hits you -- you feel a sense of loss",lastmonst);
-                        srcount=0; beep(); show3(i);  bottomline();  return(0);
+                        beep(); show3(i);  bottomline();  return(0);
                         }
                     if (--j<=0)
                         {

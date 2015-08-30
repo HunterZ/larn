@@ -17,6 +17,10 @@
 */
 
 #include "header.h"
+#include "larndefs.h"
+#include "objects.h"
+#include "monsters.h"
+#include "player.h"
 #include <ctype.h>
 
 #define min(x,y) (((x)>(y))?(y):(x))
@@ -33,6 +37,7 @@ struct isave    /* used for altar reality */
 */
 static void create_guardian();
 extern hitm();
+extern char spelweird[MAXMONST+8][SPNUM];
 
 /*
  *  cast()      Subroutine called by parse to cast a spell for the user
@@ -141,12 +146,8 @@ static speldamage(x)
                 yh = playery+6;   xl = playerx-15;   xh = playerx+16;
                 vxy(&xl,&yl);   vxy(&xh,&yh); /* check bounds */
                 for (i=yl; i<=yh; i++) /* enlightenment */
-# ifdef DGK
                     for (j=xl; j<=xh; j++)
                         know[j][i]=KNOWALL;
-# else
-                    for (j=xl; j<=xh; j++)  know[j][i]=1;
-# endif
                 draws(xl,xh+1,yl,yh+1); return;
 
         case 9: raisehp(20+(clev<<1));  return;  /* healing */
@@ -305,16 +306,12 @@ static speldamage(x)
                                 save[sc++].arg=hitp[i][j];
                                 }
                             item[i][j]=OWALL;   mitem[i][j]=0;
-# ifdef DGK
                         if (wizard)
                             know[i][j]=KNOWALL;
                         else
                             know[i][j]=0;
-# else
-                            if (wizard) know[i][j]=1; else know[i][j]=0;
-# endif
                             }
-                    eat(1,1);   if (level==1) item[33][MAXY-1]=0;
+                    eat(1,1);   if (level==1) item[33][MAXY-1]=OENTRANCE;
                     for (j=rnd(MAXY-2), i=1; i<MAXX-1; i++) item[i][j]=0;
                     while (sc>0) /* put objects back in level */
                         {
@@ -608,8 +605,8 @@ godirect(spnum,dam,str,delay,cshow)
         break;
 
         case OMIRROR:
-	{
-	int bounce = FALSE, odx=dx, ody=dy ;
+    {
+    int bounce = FALSE, odx=dx, ody=dy ;
         /* spells may bounce directly back or off at an angle
         */
         if (rnd(100) < 50 )
@@ -622,10 +619,10 @@ godirect(spnum,dam,str,delay,cshow)
         bounce = TRUE ;
         dy *= -1;
         }
-	if (!bounce || ((odx==dx) && (ody==dy)))    /* guarentee a bounce */
+    if (!bounce || ((odx==dx) && (ody==dy)))    /* guarentee a bounce */
         {
-	dx = -odx;
-	dy = -ody;
+    dx = -odx;
+    dy = -ody;
         }
         }
         break;
@@ -786,11 +783,7 @@ annihilate()
             if (*(p= &mitem[i][j])) /* if a monster there */
                 if (*p<DEMONLORD+2)
                     {
-# ifdef DGK
                     k += monster[*p].experience;    *p=know[i][j] &= ~KNOWHERE;
-# else
-                    k += monster[*p].experience;    *p=know[i][j]=0;
-# endif
                     }
                 else
                     {

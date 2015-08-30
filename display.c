@@ -1,5 +1,8 @@
-/*  display.c       Larn is copyrighted 1986 by Noah Morgan. */
+/* display.c */
 #include "header.h"
+#include "larndefs.h"
+#include "objects.h"
+#include "player.h"
 
 #define botsub( _idx, _x, _y, _str )        \
     if ( c[(_idx)] != cbak[(_idx)] )        \
@@ -9,9 +12,11 @@
     lprintf( (_str), (long)c[(_idx)] ); \
     }
 
-static int minx,maxx,miny,maxy,k,m;
+static int  minx,maxx,miny,maxy,k;
 static char bot1f=0,bot2f=0,bot3f=0;
 static char always=0;
+       char regen_bottom = 0;
+
 /*
     bottomline()
 
@@ -33,8 +38,9 @@ bottomdo()
 bot_linex()
     {
     register int i;
-    if (cbak[SPELLS] <= -50 || (always))
+    if ( regen_bottom || (always))
         {
+        regen_bottom = FALSE ;
         cursor( 1,18);
         if (c[SPELLMAX]>99)  lprintf("Spells:%3d(%3d)",(long)c[SPELLS],(long)c[SPELLMAX]);
                         else lprintf("Spells:%3d(%2d) ",(long)c[SPELLS],(long)c[SPELLMAX]);
@@ -131,7 +137,7 @@ static bot_hpx()
  */
 static bot_spellx()
     {
-    botsub(SPELLS,8,18,"%3d");
+    botsub(SPELLS,9,18,"%2d");
     }
 
 /*
@@ -222,7 +228,7 @@ draws(xmin,xmax,ymin,ymax)
 #define nlprc(_ch) DEClprc(_ch)
 # else
 #define nlprc(_ch) lprc(_ch)
-#endif /* DECRainbow */
+#endif DECRainbow
 
 /*
     drawscreen()
@@ -233,8 +239,6 @@ static char d_flag;
 drawscreen()
     {
     register int i,j,k,ileft,iright;
-    int lastx,lasty;  /* variables used to optimize the object printing */
-    char    ch;
 
     if (d_xmin==0 && d_xmax==MAXX && d_ymin==0 && d_ymax==MAXY)
         {
@@ -301,11 +305,14 @@ drawscreen()
                            then show the monster.  Otherwise, show what was
                            there before.
                         */
-                        if (( k = mitem[i][j] ) &&
+                        if (( i == playerx ) &&
+                            ( j == playery ))
+                            nlprc('@');
+                        else if (( k = mitem[i][j] ) &&
                             ( know[i][j] & KNOWHERE ))
                             nlprc( monstnamelist[k] );
                         else if (((k=item[i][j]) == OWALL ) ||
-				  (objnamelist[k] == floorc))
+                                 (objnamelist[k] == floorc))
                             nlprc( objnamelist[k] );
                         else
                             {
@@ -337,7 +344,10 @@ drawscreen()
                            then show the monster.  Otherwise, show what was
                            there before.
                         */
-                        if (( k = mitem[i][j] ) &&
+                        if (( i == playerx ) &&
+                            ( j == playery ))
+                            nlprc('@');
+                        else if (( k = mitem[i][j] ) &&
                             ( know[i][j] & KNOWHERE ))
                             nlprc( monstnamelist[k] );
                         else
@@ -357,10 +367,12 @@ drawscreen()
 #ifdef DECRainbow
     if (DECRainbow)
         DECgraphicsOFF();
-#endif /* DECRainbow */
+#endif DECRainbow
     resetbold();
     if (d_flag)  { always=1; botside(); always=1; bot_linex(); }
+/*
     oldx=99;
+*/
     d_xmin = d_ymin = 0; d_xmax = MAXX; d_ymax = MAXY; /* for limited screen drawing */
     }
 
@@ -399,7 +411,7 @@ showcell(x,y)
                         if (DECRainbow) {
                             DEClprc(objnamelist[k]);
                         } else
-#endif /* DECRainbow */
+#endif DECRainbow
                         lprc(objnamelist[k]);   
                         break;
                     default:
@@ -416,7 +428,7 @@ showcell(x,y)
 #ifdef DECRainbow
             if (DECRainbow)
                 DECgraphicsOFF();
-#endif /* DECRainbow */
+#endif DECRainbow
             }
     }
 
@@ -428,8 +440,17 @@ showcell(x,y)
 show1cell(x,y)
     int x,y;
     {
-    if (c[BLINDCOUNT])  return; /* see nothing if blind     */
     cursor(x+1,y+1);
+
+    /* see nothing if blind, but clear previous player position
+    */
+    if (c[BLINDCOUNT])
+        {
+        if ((x == oldx) && (y == oldy))
+            lprc(' ');
+        return;
+        }
+
     if ((k=mitem[x][y]))
         lprc(monstnamelist[k]);
     else switch(k=item[x][y])
@@ -464,6 +485,9 @@ show1cell(x,y)
  */
 showplayer()
     {
+    show1cell( oldx, oldy );
+    cursor(playerx+1,playery+1);
+    lprc('@');
     cursor(playerx+1,playery+1);
     oldx=playerx;  oldy=playery;
     }
@@ -503,9 +527,17 @@ moveplayer(dir)
         }
     if (k==33 && m==MAXY-1 && level==1)
         {
-        newcavelevel(0); for (k=0; k<MAXX; k++) for (m=0; m<MAXY; m++)
-        if (item[k][m]==OENTRANCE)
-          { playerx=k; playery=m; positionplayer();  drawscreen(); return(0); }
+        newcavelevel(0); 
+        for (k=0; k<MAXX; k++) 
+            for (m=0; m<MAXY; m++)
+                if (item[k][m]==OENTRANCE)
+                    { 
+                    playerx=k; 
+                    playery=m; 
+                    positionplayer();  
+                    drawscreen(); 
+                    return(0); 
+                    }
         }
     /* hit a monster
     */    
@@ -540,50 +572,125 @@ static int lincount,count;
 seemagic(arg)
     int arg;
     {
-    register int i,number;
-    count = lincount = 0;  nosignal=1;
+    register int i,j,k,number;
+    char sort[SPNUM+1]; /* OK as long as SPNUM > MAXSCROLL,MAXPOTION */
 
-    if (arg== -1) /* if display spells while casting one */
+    count = lincount = 0;
+    nosignal=1;
+
+    /* count and sort the known spell codes
+    */
+    for (j=0; j <= SPNUM ; j++ )
+        sort[j] = SPNUM ;
+    for (number = i = 0 ; i < SPNUM ; i++ )
+        if (spelknow[i])
+            {
+            number++;
+            j = 0 ;
+            while ( strncmp( spelcode[ sort[j] ], spelcode[ i ], 3 ) < 0 )
+                j++ ;
+            k = number - 1;
+            while ( k > j )
+                sort[k] = sort[ k-1 ], k-- ;
+            sort[j] = i ;
+            }
+
+    if (arg == -1) /* if display spells while casting one */
         {
-        for (number=i=0; i<SPNUM; i++) if (spelknow[i]) number++;
-        number = (number+2)/3 + 4;  /* # lines needed to display */
-        cl_up(79,number);  cursor(1,1);
+        cl_up(79, ((number + 2) / 3 + 4 )); /* lines needed for display */
+        cursor(1,1);
         }
     else
         {
-        resetscroll();  clear();
+        resetscroll();
+        clear();
         }
 
     lprcat("The magic spells you have discovered thus far:\n\n");
-    for (i=0; i<SPNUM; i++)
-        if (spelknow[i])
-            { lprintf("%s %-20s ",spelcode[i],spelname[i]);  seepage(); }
+    for (i=0; i<number; i++)
+        {
+        lprintf("%s %-20s ",spelcode[sort[i]],spelname[sort[i]]);
+        seepage();
+        }
 
     if (arg== -1)
         {
-        seepage();  more();  nosignal=0;
-        draws(0,MAXX,0,number);  return;
+        seepage();
+        more(FALSE);
+        nosignal=0;
+        draws(0,MAXX,0, (( number + 2 ) / 3 + 4 ));
+        return;
         }
 
-    lincount += 3;  if (count!=0) { count=2;  seepage(); }
+    lincount += 3;
+    if (count!=0)
+        {
+        count=2;
+        seepage();
+        }
+
+    /* count and sort the known scrolls
+    */
+    for (j=0; j <= MAXSCROLL ; j++ )
+        sort[j] = MAXSCROLL ;
+    for (number = i = 0 ; i < MAXSCROLL ; i++ )
+        if (scrollname[i][0])
+            {
+            number++;
+            j = 0 ;
+            while ( strcmp( &scrollname[sort[j]][1], &scrollname[i][1] ) < 0 )
+                j++ ;
+            k = number - 1;
+            while ( k > j )
+                sort[k] = sort[ k-1 ], k-- ;
+            sort[j] = i ;
+            }
 
     lprcat("\nThe magic scrolls you have found to date are:\n\n");
     count=0;
-    for (i=0; i<MAXSCROLL; i++)
-        if (scrollname[i][0])
-          if (scrollname[i][1]!=' ')
-            { lprintf("%-26s",&scrollname[i][1]);  seepage(); }
+    for (i=0; i < number; i++ )
+        {
+        lprintf("%-26s", &scrollname[sort[i]][1]);
+        seepage();
+        }
 
-    lincount += 3;  if (count!=0) { count=2;  seepage(); }
+    lincount += 3;
+    if ( count != 0 )
+        {
+        count=2;
+        seepage();
+        }
+
+    /* count and sort the known potions
+    */
+    for (j=0; j <= MAXPOTION ; j++ )
+        sort[j] = MAXPOTION ;
+    for (number = i = 0 ; i < MAXPOTION ; i++ )
+        if (potionname[i][0])
+            {
+            number++;
+            j = 0 ;
+            while ( strcmp( &potionname[sort[j]][1], &potionname[i][1] ) < 0 )
+                j++ ;
+            k = number - 1;
+            while ( k > j )
+                sort[k] = sort[ k-1 ], k-- ;
+            sort[j] = i ;
+            }
 
     lprcat("\nThe magic potions you have found to date are:\n\n");
     count=0;
-    for (i=0; i<MAXPOTION; i++)
-        if (potionname[i][0])
-          if (potionname[i][1]!=' ')
-            { lprintf("%-26s",&potionname[i][1]);  seepage(); }
+    for (i=0; i < number; i++)
+        {
+        lprintf("%-26s",&potionname[sort[i]][1]);
+        seepage();
+        }
 
-    if (lincount!=0) more();    nosignal=0;  setscroll();   drawscreen();
+    if (lincount!=0)
+        more(FALSE);
+    nosignal=0;
+    setscroll();
+    drawscreen();
     }
 
 /*
@@ -594,6 +701,6 @@ static seepage()
     if (++count==3)
         {
         lincount++; count=0;    lprc('\n');
-        if (lincount>17) {  lincount=0;  more();  clear();  }
+        if (lincount>17) {  lincount=0;  more(FALSE);  clear();  }
         }
     }

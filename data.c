@@ -1,16 +1,19 @@
-/*  data.c      Larn is copyrighted 1986 by Noah Morgan. */
-#define NODEFS
 #include "header.h"
+#include "monsters.h"
+#include "objects.h"
+
+#define VER    12
+#define SUBVER  3
 
 /*
     class[c[LEVEL]-1] gives the correct name of the players experience level
- */
+*/
 static char aa1[] = " mighty evil master";
 static char aa2[] = "apprentice demi-god";
 static char aa3[] = "  minor demi-god   ";
 static char aa4[] = "  major demi-god   ";
 static char aa5[] = "    minor deity    ";
-static char aa6[] = "    major deity    "; 
+static char aa6[] = "    major deity    ";
 static char aa7[] = "  novice guardian  ";
 static char aa8[] = "apprentice guardian";
 static char aa9[] = "    The Creator    ";
@@ -85,8 +88,6 @@ char item[MAXX][MAXY];  /*  objects in maze if any  */
 char know[MAXX][MAXY];  /*  1 or 0 if here before   */
 char mitem[MAXX][MAXY]; /*  monster item array      */
 char stealth[MAXX][MAXY];   /*  0=sleeping 1=awake monst*/
-char iven[26];          /*  inventory for player            */
-short ivenarg[26];      /*  inventory for player            */
 char lastmonst[40];     /*  this has the name of the current monster    */
 char beenhere[MAXLEVEL+MAXVLEVEL];  /*  1 if have been on this level */
 char VERSION=VER;   /*  this is the present version # of the program    */
@@ -128,12 +129,12 @@ struct sphere *spheres=0; /*pointer to linked list for spheres of annihilation*/
 char *levelname[]=
 { " H"," 1"," 2"," 3"," 4"," 5"," 6"," 7"," 8"," 9","10","V1","V2","V3" };
 
-char original_objnamelist[]=".ATOP<^F&^+M=>^$$f*OD#~][[)))(((||||||||{?!BC}o:;,@@@@EVV))([[]]](^.[H***.^^.S.tsTLc,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,";
+char original_objnamelist[]=".AT_P<_F&^+M=>_$$f*OD#~][[)))(((||||||||{?!BC}o:;,@@@@EVV))([[]]](^.[H***.^^.S.tsTLc_____________________________________________";
 char hacklike_objnamelist[]=".:\\_^<_{%^6|2>_55}$'+#~[[[))))))========-?!?&~~~~~****899)))[[[[[)^.[1$$$.^^.3./0\\4,____________________________________________";
 char objnamelist[MAXOBJECT+1];
 char monstnamelist[]=".BGHJKOScjtAELNQRZabhiCTYdegmvzFWflorXV.pqsyUkMwDDPxnDDuD........,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,";
 char floorc = '.';
-char wallc = '#';
+char wallc  = '#';
 char boldobjects = FALSE ;
 char auto_pickup = FALSE ;
 
@@ -276,7 +277,7 @@ struct monst monster[] = {
 
 /*  name array for scrolls      */
 
-char *scrollname[] = {
+char *scrollname[MAXSCROLL+1] = {
 "\0enchant armor",
 "\0enchant weapon",
 "\0enlightenment",
@@ -304,11 +305,12 @@ char *scrollname[] = {
 "\0 ",
 "\0 ",
 "\0 ",
-"\0 "
+"\0 ",
+"\0zzzzzzzzzzzzzz"    /* sentinel, for the sorted known objects inventory */
  };
 
 /*  name array for magic potions    */
-char *potionname[] = {
+char *potionname[MAXPOTION+1] = {
 "\0sleep",
 "\0healing",
 "\0raise level",
@@ -318,7 +320,7 @@ char *potionname[] = {
 "\0raise charisma",
 "\0dizziness",
 "\0learning",
-"\0gold detection",
+"\0object detection",
 "\0monster detection",
 "\0forgetfulness",
 "\0water",
@@ -343,7 +345,8 @@ char *potionname[] = {
 "\0 ",
 "\0 ",
 "\0 ",
-"\0 "
+"\0 ",
+"\0zzzzzzzzzzzzzz"    /* sentinel, for the sorted known objects inventory */
  };
 
 
@@ -353,13 +356,13 @@ char *potionname[] = {
 char spelknow[SPNUM];
 char splev[] = { 1, 4, 9, 14, 18, 22, 26, 29, 32, 35, 37, 37, 37, 37, 37 };
 
-char *spelcode[]={
+char *spelcode[SPNUM+1]={
     "pro",  "mle",  "dex",  "sle",  "chm",  "ssp",
     "web",  "str",  "enl",  "hel",  "cbl",  "cre",  "pha",  "inv",
     "bal",  "cld",  "ply",  "can",  "has",  "ckl",  "vpr",
     "dry",  "lit",  "drl",  "glo",  "flo",  "fgr",
     "sca",  "hld",  "stp",  "tel",  "mfi", /* 31 */
-    "sph",  "gen",  "sum",  "wtw",  "alt",  "per"
+    "sph",  "gen",  "sum",  "wtw",  "alt",  "per", "zzz"
  };
 
 char *spelname[]={
@@ -565,14 +568,16 @@ char scprob[]= { 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3,
  *
  *  0 - sleep               1 - healing                 2 - raise level
  *  3 - increase ability    4 - gain wisdom             5 - gain strength
- *  6 - charismatic character   7 - dizziness           8 - learning
- *  9 - gold detection      10 - monster detection      11 - forgetfulness
+ *  6 - increase charisma   7 - dizziness               8 - learning
+ *  9 - object detection    10 - monster detection      11 - forgetfulness
  *  12 - water              13 - blindness              14 - confusion
  *  15 - heroism            16 - sturdiness             17 - giant strength
  *  18 - fire resistance    19 - treasure finding       20 - instant healing
  *  21 - cure dianthroritis 22 - poison                 23 - see invisible
  */
-char potprob[] = { 0, 0, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9, 9, 10, 10, 10, 11, 11, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 20, 20, 22, 22, 23, 23 };
+char potprob[] = { 0, 0, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9, 9,
+               10, 10, 10, 11, 11, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 19,
+               20, 20, 22, 22, 23, 23 };
 
 char nlpts[] = { 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7 };
 char nch[] = { 0, 0, 0, 1, 1, 1, 2, 2, 3, 4 };

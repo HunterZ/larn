@@ -6,7 +6,6 @@
 
     act_remove_gems         remove gems from a throne
     act_sit_throne          sit on a throne
-    act_kick_stairs         kick the stairs
     act_up_stairs           go up stairs
     act_down_stairs         go down stairs
     act_drink_fountain      drink from a fountain
@@ -24,6 +23,10 @@
 */
 
 #include "header.h"
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
 
 /*
     act_remove_gems
@@ -92,27 +95,6 @@ int arg ;
 
     return ;
     }
-
-/*
-    assumes that cursors() has been called, and that a check has been made
-    that the player is actually standing at a set of stairs.
-*/
-act_kick_stairs()
-    {
-    int k ;
-
-    if (rnd(2) == 1)
-        lprcat("\nI hope you feel better. Showing anger rids you of frustration.");
-    else
-        {
-        k = rnd((level + 1) << 1) ;
-        lprintf("\nYou hurt your foot dumb dumb!  You suffer %d hit points", (long)k );
-        lastnum = 276 ;
-        losehp(k) ;
-        bottomline();
-        }
-    return ;
-}
 
 /*
     assumes that cursors() has been called and that a check has been made that
@@ -236,26 +218,26 @@ act_wash_fountain()
 */
 act_down_shaft()
     {
-    if (level!=0) 
-        { 
-        lprcat("\nThe shaft only extends 5 feet downward!"); 
-        return; 
+    if (level!=0)
+        {
+        lprcat("\nThe shaft only extends 5 feet downward!");
+        return;
         }
 
-    if (packweight() > 45+3*(c[STRENGTH]+c[STREXTRA])) 
-        { 
-        lprcat("\nYou slip and fall down the shaft"); 
+    if (packweight() > 45+3*(c[STRENGTH]+c[STREXTRA]))
+        {
+        lprcat("\nYou slip and fall down the shaft");
         beep();
-        lastnum=275;  
-        losehp(30+rnd(20)); 
-        bottomhp(); 
+        lastnum=275;
+        losehp(30+rnd(20));
+        bottomhp();
         }
-    else if (prompt_mode) 
-        lprcat("climb down");  
+    else if (prompt_mode)
+        lprcat("climb down");
 
-    nap(3000);  
     newcavelevel(MAXLEVEL);
-    volshaft_climbed( OVOLUP );
+    draws(0,MAXX,0,MAXY);
+    bot_linex();
     return;
     }
 
@@ -286,7 +268,6 @@ act_up_shaft()
     if (prompt_mode)
         lprcat("climb up"); 
     lflush(); 
-    nap(3000); 
     newcavelevel(0);
     volshaft_climbed( OVOLDOWN );
     return;
@@ -326,93 +307,100 @@ int object;
 act_desecrate_altar()
     {
     if (rnd(100)<60)
-	{ 
-	createmonster(makemonst(level+2)+8); 
-	c[AGGRAVATE] += 2500; 
-	}
+    { 
+    createmonster(makemonst(level+2)+8); 
+    c[AGGRAVATE] += 2500; 
+    }
     else if (rnd(101)<30)
-	{
-	lprcat("\nThe altar crumbles into a pile of dust before your eyes");
-	forget();   /*  remember to destroy the altar   */
-	}
+    {
+    lprcat("\nThe altar crumbles into a pile of dust before your eyes");
+    forget();   /*  remember to destroy the altar   */
+    }
     else
-	lprcat("\nnothing happens");
+    lprcat("\nnothing happens");
     return ;
     }
 
 /*
-    Perform the actions associated with praying at an altar and giving a 
+    Perform the actions associated with praying at an altar and giving a
     donation.
 */
 act_donation_pray()
     {
     unsigned long k,temp ;
 
-    lprcat("\n\n");  
-    cursor(1,24);  
-    cltoeoln();
-    cursor(1,23);  
-    cltoeoln();
-    lprcat("how much do you donate? ");
-    k = readnum((long)c[GOLD]);
+    while (1)
+        {
+        lprcat("\n\n");
+        cursor(1,24);
+        cltoeoln();
+        cursor(1,23);
+        cltoeoln();
+        lprcat("how much do you donate? ");
+        k = readnum((long)c[GOLD]);
 
-/* VMS has a problem with echo mode input (used in readnum()) such that the
-   next carriage return will shift the screen up one line.  To get around
-   this, if we are VMS, don't print the next carriage return.  Otherwise,
-   print the carriage return needed by all following messages.
-*/
-#ifndef VMS
-#ifndef ultrix
-    lprcat("\n");
+        /* VMS has a problem with echo mode input (used in readnum()) such that the
+           next carriage return will shift the screen up one line.  To get around
+           this, if we are VMS, don't print the next carriage return.  Otherwise,
+           print the carriage return needed by all following messages.
+	Turns out that all but MS-DOS (which has 25 lines) has this problem.
+        */
+#ifdef MSDOS
+            lprcat("\n");
 #endif
-#endif
 
-    /* make giving zero gold equivalent to 'just pray'ing.  Allows player to
-       'just pray' in command mode, without having to add yet another command.
-    */
-    if (k == 0)
-	{
-        act_just_pray();
-	return;
-	}
+        /* make giving zero gold equivalent to 'just pray'ing.  Allows player to
+           'just pray' in command mode, without having to add yet another command.
+        */
+        if (k == 0)
+            {
+            act_just_pray();
+            return;
+            }
 
-    if (c[GOLD]<k)
-	{
-        lprcat("You don't have that much!");	
-	return;
-	}
-    temp = c[GOLD] / 10 ;
-    c[GOLD] -= k;
-    /* if player gave less than 10% of _original_ gold, make a monster
-    */
-    if (k < temp || k<rnd(50))
-	{ 
-	createmonster(makemonst(level+1)); 
-	c[AGGRAVATE] += 200; 
-	}
-    else if (rnd(101) > 50) 
-	{ 
-	act_prayer_heard(); 
-	return; 
-	}
-    else if (rnd(43) == 5)
-	{
-	if (c[WEAR]) 
-	    lprcat("You feel your armor vibrate for a moment");
-	enchantarmor(); 
-	return;
-	}
-    else if (rnd(43) == 8)
-	{
-	if (c[WIELD]) 
-	    lprcat("You feel your weapon vibrate for a moment");
-	enchweapon(); 
-	return;
-	}
-    else    
-	lprcat("Thank You.");
-    bottomline();
-    return ;
+        if (c[GOLD] >= k)
+            {
+            temp = c[GOLD] / 10 ;
+            c[GOLD] -= k;
+            bottomline();
+
+            /* if player gave less than 10% of _original_ gold, make a monster
+            */
+            if (k < temp || k < rnd(50))
+                {
+                createmonster(makemonst(level+1));
+                c[AGGRAVATE] += 200;
+                return;
+                }
+            if (rnd(101) > 50)
+                {
+                act_prayer_heard();
+                return;
+                }
+            if (rnd(43) == 5)
+                {
+                if (c[WEAR])
+                    lprcat("You feel your armor vibrate for a moment");
+                enchantarmor();
+                return;
+                }
+            if (rnd(43) == 8)
+                {
+                if (c[WIELD])
+                    lprcat("You feel your weapon vibrate for a moment");
+                enchweapon();
+                return;
+                }
+
+            lprcat("Thank You.");
+            return ;
+            }
+
+        /* Player donates more gold than they have.  Loop back around so
+           player can't escape the altar for free.
+        */
+        lprcat("You don't have that much!");
+        }
     }
 
 /*
@@ -426,23 +414,23 @@ act_donation_pray()
 act_just_pray()
     {
     if (rnd(100)<75) 
-	lprcat("nothing happens");
+    lprcat("nothing happens");
     else if (rnd(43) == 10)
-	{
-	if (c[WEAR]) 
-	    lprcat("You feel your armor vibrate for a moment");
-	enchantarmor(); 
-	return;
-	}
+    {
+    if (c[WEAR]) 
+        lprcat("You feel your armor vibrate for a moment");
+    enchantarmor(); 
+    return;
+    }
     else if (rnd(43) == 10)
-	{
-	if (c[WIELD]) 
-	    lprcat("You feel your weapon vibrate for a moment");
-	enchweapon(); 
-	return;
-	}
+    {
+    if (c[WIELD]) 
+        lprcat("You feel your weapon vibrate for a moment");
+    enchweapon(); 
+    return;
+    }
     else 
-	createmonster(makemonst(level+1));
+    createmonster(makemonst(level+1));
     return;
     }
 
@@ -509,9 +497,9 @@ int x,y ;
                     beep();
                     lprcat("\nA sickness engulfs you!");    break;
             };
-	item[x][y]=know[x][y]=0;    /* destroy the chest */
+    item[x][y]=know[x][y]=0;    /* destroy the chest */
         if (rnd(100)<69) creategem(); /* gems from the chest */
-	dropgold(rnd(110*iarg[playerx][playery]+200));
+    dropgold(rnd(110*iarg[playerx][playery]+200));
         for (i=0; i<rnd(4); i++) something(iarg[playerx][playery]+2);
         }
     else
@@ -547,12 +535,12 @@ int y ;
 
             default:    break;
             }
-	return( 0 );
+    return( 0 );
         }
     else
         {
-	know[x][y]=0;
-	item[x][y]=OOPENDOOR;
-	return( 1 );
+        know[x][y]=0;
+        item[x][y]=OOPENDOOR;
+        return( 1 );
         }
     }

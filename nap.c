@@ -1,4 +1,4 @@
-/* nap.c         Larn is copyrighted 1986 by Noah Morgan. */
+/* nap.c */
 #ifdef VMS
 #include <signal.h>
 #include <types.h>
@@ -8,10 +8,11 @@
 #include <sys/types.h>
 #ifdef SYSV
 # ifdef MSDOS
-#ifdef	OS2LARN
-#define	INCL_BASE
-#include <os2.h>
-#endif
+#  ifdef    OS2LARN
+#   define   INCL_BASE
+#   include <os2.h>
+#   define sleep(x)	DosSleep(x*1000L)
+#  endif
 #   include <dos.h>
 # else
 #   include <sys/times.h>
@@ -34,7 +35,7 @@ nap(x)
     }
 
 #ifdef NONAP
-napms(x)    /* do nothing */
+static napms(x)    /* do nothing */
     int x;
     {
     }
@@ -46,16 +47,16 @@ napms(x)    /* do nothing */
 
 #ifdef MSDOS
 unsigned long
-dosgetms()
+static dosgetms()
 {
-#ifdef	OS2LARN
-	DATETIME dt;
-	DosGetDateTime(&dt);
+#ifdef    OS2LARN
+  DATETIME dt;
+  DosGetDateTime(&dt);
 
-	/* return hundreths of seconds */
-	return ( 360000L * dt.hours   +
-		 6000L   * dt.minutes +
-		 100L    * dt.seconds + dt.hundredths );
+  /* return hundreths of seconds */
+  return ( 360000L * dt.hours   +
+       6000L   * dt.minutes +
+       100L    * dt.seconds + dt.hundredths );
 #else
     union REGS regs;
 
@@ -65,12 +66,12 @@ dosgetms()
     /* return hundreths of seconds
     */
     return ( 360000L * regs.h.ch +
-	       6000L * regs.h.cl +
-		100L * regs.h.dh + regs.h.dl );
+           6000L * regs.h.cl +
+        100L * regs.h.dh + regs.h.dl );
 #endif
 }
 
-napms(time)
+static napms(time)
 int time;
 {
     unsigned long matchclock;
@@ -86,7 +87,7 @@ int time;
 }
 
 # else
-napms(time)
+static napms(time)
     int time;
     {
     long matchclock, times();
@@ -109,16 +110,20 @@ napms(time)
 #include <sys/time.h>
 #define bit(_a) (1<<((_a)-1))
 
-static  nullf()
+static void nullf()
     {
     }
 
 /*  napms - sleep for time milliseconds - uses setitimer() */
-napms(time)
+static napms(time)
     int time;
     {
     struct itimerval    timeout;
-    void    (*oldhandler) ();
+#ifdef SIG_RTNS_INT
+    int     (*oldhandler) ();
+#else
+    void     (*oldhandler) ();
+#endif
     int     oldsig;
 
     if (time <= 0) return;

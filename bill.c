@@ -1,17 +1,19 @@
+/* bill.c */
 #include "header.h"
-/* bill.c		 "Larn is copyrighted 1986 by Noah Morgan. */
+#include "larndefs.h"
 
 # ifdef MAIL
+# include "player.h"
 # ifdef VMS
-# define MAILTMP	"sys$scratch:"
+# define MAILTMP    "sys$scratch:"
 # else
-# define MAILTMP	"/tmp/#"
+# define MAILTMP    "/tmp/#"
 # endif
 static int pid;
 static char mail600[sizeof(MAILTMP)+sizeof("mail600")+20];
 # endif
 /*
- *	function to create the tax bill for the user
+ *  function to create the tax bill for the user
  */
 # ifdef MAIL
 static letter1()
@@ -46,9 +48,9 @@ long gold;
   lprcat("\ncounty of Larn is in dire need of funds, we have spared no time");
   lprintf("\nin preparing your tax bill.  You owe %d gold pieces as",
 # ifdef MAIL
-	(long)c[GOLD]*TAXRATE);
+    (long)c[GOLD]*TAXRATE);
 # else
-	gold * TAXRATE);
+    gold * TAXRATE);
 # endif
   lprcat("\nof this notice, and is due within 5 days.  Failure to pay will");
   lprcat("\nmean penalties.  Once again, congratulations, We look forward");
@@ -207,53 +209,53 @@ static int (*pfn[])()= { letter1, letter2, letter3, letter4, letter5, letter6 };
 
 # ifdef MAIL
 /*
- *	function to mail the letters to the player if a winner
+ *  function to mail the letters to the player if a winner
  */
 mailbill()
-	{
+    {
 #ifdef VMS
-	register int i;
-	char buf[128];
-	pid = getpid();
-	for (i=0; i<sizeof(pfn)/sizeof(int (*)()); i++)
-		if ((*pfn[i])()) {
-			sprintf(buf, "mail %s %s\n", loginname, mail600);
-			oneliner(buf);
-			delete(mail600);
-		}
-	}
+    register int i;
+    char buf[128];
+    pid = getpid();
+    for (i=0; i<sizeof(pfn)/sizeof(int (*)()); i++)
+        if ((*pfn[i])()) {
+            sprintf(buf, "mail %s %s\n", loginname, mail600);
+            oneliner(buf);
+            delete(mail600);
+        }
+    }
 #else
-	register int i;
-	char buf[128];
-	wait(0);  pid=getpid();
-	if (fork() == 0)
-		{
-		resetscroll();
-		for (i=0; i<sizeof(pfn)/sizeof(int (*)()); i++)
-			if ((*pfn[i])())
-				{
-				sleep(20);
-				sprintf(buf,"mail %s < %s",loginname,mail600);
-				system(buf);  unlink(mail600);
-				}
-		exit(0);
-		}
-	}
+    register int i;
+    char buf[128];
+    wait(0);  pid=getpid();
+    if (fork() == 0)
+        {
+        resetscroll();
+        for (i=0; i<sizeof(pfn)/sizeof(int (*)()); i++)
+            if ((*pfn[i])())
+                {
+                sleep(20);
+                sprintf(buf,"mail %s < %s",loginname,mail600);
+                system(buf);  unlink(mail600);
+                }
+        exit();
+        }
+    }
 #endif
 # else
 
-/* Page the mail to the terminal	- dgk
+/* Page the mail to the terminal    - dgk
  */
 readmail(gold)
-long	gold;
+long    gold;
 {
-	register int i;
+    register int i;
 
-	for (i = 0; i < (sizeof pfn) / (sizeof pfn[0]); i++) {
-		resetscroll();
-		clear();
-		(*pfn[i])(gold);	/* a bit dirty 'cause of args */
-		retcont();
-	}
+    for (i = 0; i < (sizeof pfn) / (sizeof pfn[0]); i++) {
+        resetscroll();
+        clear();
+        (*pfn[i])(gold);    /* a bit dirty 'cause of args */
+        retcont();
+    }
 }
 # endif

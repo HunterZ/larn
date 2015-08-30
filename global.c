@@ -1,7 +1,7 @@
-/*  global.c        Larn is copyrighted 1986 by Noah Morgan.
+/*  global.c
  *
  *  raiselevel()        subroutine to raise the player one level
- *  loselevel()     subroutine to lower the player by one level
+ *  loselevel()         subroutine to lower the player by one level
  *  raiseexperience(x)  subroutine to increase experience points
  *  loseexperience(x)   subroutine to lose experience points
  *  losehp(x)           subroutine to remove hit points from the player
@@ -31,14 +31,26 @@
  *  packweight()
  */
 
+#include <ctype.h>
 #include "header.h"
-extern int score[],srcount,dropflag;
+#include "larndefs.h"
+#include "monsters.h"
+#include "objects.h"
+#include "player.h"
+
+extern int score[],dropflag;
 extern short playerx,playery,lastnum;
 extern char cheat,level,monstnamelist[];
 extern char lastmonst[],*what[],*who[]; 
 extern char winner[];
 extern char logname[],monstlevel[];
 extern char sciv[SCORESIZE+1][26][2],*potionname[],*scrollname[];
+
+#ifdef __STDC__
+extern void show3( int );
+#else
+extern void show3();
+#endif
 
 /*
     raiselevel()
@@ -190,36 +202,82 @@ makemonst(lev)
     {
     register int tmp,x;
     if (lev < 1)
-	lev = 1;
+    lev = 1;
     if (lev > 12)
-	lev = 12;
+    lev = 12;
     if (lev < 5)
-	tmp=rnd((x=monstlevel[lev-1])?x:1);
+    tmp=rnd((x=monstlevel[lev-1])?x:1);
     else
         tmp=rnd((x=monstlevel[lev-1]-monstlevel[lev-4])?x:1)+monstlevel[lev-4];
 
     while (monster[tmp].genocided && tmp<MAXMONST)
-	tmp++; /* genocided? */
+    tmp++; /* genocided? */
     return(tmp);
     }
 
 /*
     positionplayer()
 
-    function to be sure player is not in a wall
+    Insure player is not in a wall or on top of a monster.  Could be more
+    intelligent about what kinds of objects the player can land on.
  */
 positionplayer()
     {
-    int try;
-    try = 2;
-    while ((item[playerx][playery] || mitem[playerx][playery]) && (try))
+    int z, try = 2;
+
+    /* set the previous player x,y position to the new one, so that
+       clearing the player indicator from the previous location will
+       not do the wrong thing.
+    */
+    oldx = playerx ;
+    oldy = playery ;
+
+    /* short-circuit the testing if current position empty
+    */
+    if (!item[playerx][playery] &&
+        !mitem[playerx][playery])
+        return;
+
+    /* make at most two complete passes across the dungeon, looking
+       for a clear space.  In most situations, should find a clear
+       spot right around the current player position.
+    */
+    do
+        {
+
+        /* check all around the player position for a clear space.
+        */
+        for (z=1; z<9 ; z++)
+            {
+            int tmpx = playerx + diroffx[z];
+            int tmpy = playery + diroffy[z];
+            if (!item[tmpx][tmpy] &&
+                !mitem[tmpx][tmpy])
+                {
+                playerx = tmpx ;
+                playery = tmpy ;
+                return;
+                }
+            }
+
+        /* no clear spots around the player. try another position,
+           wrapping around the dungeon.
+        */
         if (++playerx >= MAXX-1)
             {
             playerx = 1;
             if (++playery >= MAXY-1)
-                {   playery = 1;    --try;  }
+                {
+                playery = 1;
+                try--;
+                }
             }
-    if (try==0)  lprcat("Failure in positionplayer\n");
+        }
+    while (try);
+
+    /* no spot found.
+    */
+    lprcat("Failure in positionplayer\n");
     }
 
 /*
@@ -298,79 +356,53 @@ quit()
     while (1)
         {
         i=ttgetch();
-        if (i == 'y')   { died(300); return; }
-        if ((i == 'n') || (i == '\33')) { lprcat(" no"); lflush(); return; }
-        lprcat("\n");  setbold();  lprcat("Yes");  resetbold();  lprcat(" or ");
-        setbold();  lprcat("No");  resetbold();  lprcat(" please?   Do you want to quit? ");
+        if ((i == 'y') || (i == 'Y'))   
+            { 
+            died(300); 
+            return; 
+            }
+        if ((i == 'n') || (i == 'N') || (i == '\33')) 
+            { 
+            lprcat(" no"); 
+            lflush(); 
+            return; 
+            }
+        lprcat("\n");  
+        setbold();  lprcat("Yes");  resetbold();  
+        lprcat(" or ");
+        setbold();  lprcat("No");   resetbold();  
+        lprcat(" please?   Do you want to quit? ");
         }   
     }
 
 /*
-    function to ask --more-- then the user must enter a space
+    function to ask --more--. If the user enters a space, returns 0.  If user
+    enters Escape, returns 1.  If user enters alphabetic, then returns that
+    value.
  */
-more()
+more(select_allowed)
+char select_allowed;
     {
+    register int i;
+
     lprcat("\n  --- press ");  standout("space");  lprcat(" to continue --- ");
-    while (ttgetch() != ' ');
-    }
+    if (select_allowed)
+        lprcat("letter to select --- ");
 
-/*
-    function to put something in the players inventory
-    returns 0 if success, 1 if a failure
- */
-take(itm,arg)
-    int itm,arg;
-    {
-    register int i,limit;
-/*  cursors(); */
-    if ((limit = 15+(c[LEVEL]>>1)) > 26)  limit=26;
-    for (i=0; i<limit; i++)
-        if (iven[i]==0)
-            {
-            iven[i] = itm;  ivenarg[i] = arg;  limit=0;
-            switch(itm)
-                {
-                case OPROTRING: case ODAMRING: case OBELT: limit=1;  break;
-                case ODEXRING:      c[DEXTERITY] += ivenarg[i]+1; limit=1;  break;
-                case OSTRRING:      c[STREXTRA]  += ivenarg[i]+1;   limit=1; break;
-                case OCLEVERRING:   c[INTELLIGENCE] += ivenarg[i]+1;  limit=1; break;
-                case OHAMMER:       c[DEXTERITY] += 10; c[STREXTRA]+=10;
-                                    c[INTELLIGENCE]-=10;    limit=1;     break;
-
-                case OORBOFDRAGON:  c[SLAYING]++;       break;
-                case OSPIRITSCARAB: c[NEGATESPIRIT]++;  break;
-                case OCUBEofUNDEAD: c[CUBEofUNDEAD]++;  break;
-                case ONOTHEFT:      c[NOTHEFT]++;       break;
-                case OSWORDofSLASHING:  c[DEXTERITY] +=5;   limit=1; break;
-                };
-            lprcat("\nYou pick up:"); srcount=0;  show3(i);
-            if (limit) bottomline();  return(0);
-            }
-    lprcat("\nYou can't carry anything else");  return(1);
-    }
-
-/*
-    subroutine to drop an object  returns 1 if something there already else 0
- */
-drop_object(k)
-    int k;
-    {
-    int itm;
-    if ((k<0) || (k>25)) return(0);
-    itm = iven[k];  cursors();
-    if (itm==0) { lprintf("\nYou don't have item %c! ",k+'a'); return(1); }
-    if (item[playerx][playery])
-        { beep(); lprcat("\nThere's something here already"); return(1); }
-    if (playery==MAXY-1 && playerx==33) return(1); /* not in entrance */
-    item[playerx][playery] = itm;
-    iarg[playerx][playery] = ivenarg[k];
-    srcount=0; lprcat("\n  You drop:"); show3(k); /* show what item you dropped*/
-    know[playerx][playery] = 0;  iven[k]=0; 
-    if (c[WIELD]==k) c[WIELD]= -1;      if (c[WEAR]==k)  c[WEAR] = -1;
-    if (c[SHIELD]==k) c[SHIELD]= -1;
-    adjustcvalues(itm,ivenarg[k]);
-    dropflag=1; /* say dropped an item so wont ask to pick it up right away */
-    return(0);
+    while (TRUE)
+        {
+        if ((i=ttgetch()) == ' ' || i == '\n')
+            return 0 ;
+        if (i== '\x1B')
+            return 1 ;
+	if (select_allowed)
+	    {
+	    if (isupper(i))
+		i = tolower(i);
+	    if ( i >= 'a' && i <= 'z' || i == '.' )
+		return i;
+	    }
+        }
     }
 
 /*
@@ -403,18 +435,6 @@ enchweapon()
     }
 
 /*
-    routine to tell if player can carry one more thing
-    returns 1 if pockets are full, else 0
- */
-pocketfull()
-    {
-    register int i,limit; 
-    if ((limit = 15+(c[LEVEL]>>1)) > 26)  limit=26;
-    for (i=0; i<limit; i++) if (iven[i]==0) return(0);
-    return(1);
-    }
-
-/*
     function to return 1 if a monster is next to the player else returns 0
  */
 nearbymonst()
@@ -439,7 +459,7 @@ stealsomething()
         i=rund(26);
         if (iven[i]) if (c[WEAR]!=i) if (c[WIELD]!=i) if (c[SHIELD]!=i)
             {
-            srcount=0; show3(i);
+            show3(i);
             adjustcvalues(iven[i],ivenarg[i]);  iven[i]=0; return(1);
             }
         if (--j <= 0) return(0);
@@ -530,8 +550,9 @@ getpassword()
  */
 getyn()
     {
-    register int i;
-    i=0; while (i!='y' && i!='n' && i!='\33') i=ttgetch();
+    register int i=0;
+    while (i!='y' && i!='n' && i!='\33')
+    i=ttgetch();
     return(i);
     }
 
@@ -541,26 +562,62 @@ getyn()
  */
 packweight()
     {
-    register int i,j,k;
-    k=c[GOLD]/1000; j=25;  while ((iven[j]==0) && (j>0)) --j;
+    register int i, j=25, k;
+
+    k=c[GOLD]/1000;
+    while ((iven[j]==0) && (j>0))
+    --j;
     for (i=0; i<=j; i++)
         switch(iven[i])
             {
-            case 0:                                             break;
-            case OSSPLATE:   case OPLATEARMOR:      k += 40;    break;
-            case OPLATE:                            k += 35;    break;
-            case OHAMMER:                           k += 30;    break;
-            case OSPLINT:                           k += 26;    break;
-            case OSWORDofSLASHING:  case OCHAIN:
-            case OBATTLEAXE:        case O2SWORD:   k += 23;    break;
-            case OLONGSWORD:        case OSWORD:
-            case ORING:             case OFLAIL:    k += 20;    break;
-            case OLANCE:        case OSTUDLEATHER:  k += 15;    break;
-            case OLEATHER:          case OSPEAR:    k += 8;     break;
-            case OORBOFDRAGON:      case OBELT:     k += 4;     break;
-            case OSHIELD:                           k += 7;     break;
-            case OCHEST:        k += 30 + ivenarg[i];           break;
-            default:                                k++;
+        case 0:
+        break;
+        case OSSPLATE:
+        case OPLATEARMOR:
+        k += 40;
+        break;
+        case OPLATE:
+        k += 35;
+        break;
+        case OHAMMER:
+        k += 30;
+        break;
+        case OSPLINT:
+        k += 26;
+        break;
+        case OSWORDofSLASHING:
+        case OCHAIN:
+        case OBATTLEAXE:
+        case O2SWORD:
+        k += 23;
+        break;
+        case OLONGSWORD:
+        case OSWORD:
+        case ORING:
+        case OFLAIL:
+        k += 20;
+        break;
+        case OLANCE:
+        case OSTUDLEATHER:
+        k += 15;
+        break;
+        case OLEATHER:
+        case OSPEAR:
+        k += 8;
+        break;
+        case OORBOFDRAGON:
+        case OBELT:
+        k += 4;
+        break;
+        case OSHIELD:
+        k += 7;
+        break;
+        case OCHEST:
+        k += 30 + ivenarg[i];
+        break;
+        default:
+        k++;
+        break;
             };
     return(k);
     }
@@ -578,8 +635,9 @@ rund(x)
     {
     return((((lrandx=lrandx*1103515245+12345)>>7)%(x))  );
     }
-#endif /* MACRORND */
+#endif MACRORND
 
+#if 0
 /*
     function to read a string from token input "string"
     returns a pointer to the string
@@ -599,3 +657,4 @@ gettokstr(str)
     i=50;
     if (j != '"') while ((ttgetch() != '"') && (--i > 0)); /* if end due to too long, then find closing quote */
     }
+#endif
