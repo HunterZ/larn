@@ -1,0 +1,33 @@
+As promised, here is the source to Larn V12.2, the executables for which were
+posted earlier this year to comp.binaries.ibm.pc.
+
+The source correctly compiles and executes under DEC Ultrix, using the cc
+compiler.  The enclosed Makefile is for U*ix systems.
+
+The source correctly compiles and executes under VAX/VMS, using the VAX C V3.x
+compiler.  The enclosed descrip.mms is a MMS file for building under VAX/VMS.
+
+The source correctly compiles and executes under MS-DOS, using Turbo C V2.0 or
+Turbo C++ V1.0.  The LARN.PRJ file is for Turbo C V2.0, but unfortunately I am
+unable to properly distribute the Turbo C++ project file and setup files.  To
+compiler under MS-DOS, you must define the MSDOS, DGK, SYSV, DGK_MSDOS and
+NOVARARGS defines.
+
+I am interested in receiving source changes that allow Larn to be ported to
+other architectures or operating systems.  I am also interested in constructive
+changes or additions to improve the game.  I am _not_ interested in arbitrary
+mods, a la UltraLarn.
+
+Bug fixes, bug reports, and requests welcome.
+
+I am reachable at tle.enet.dec.com!routley or routley@tle.enet.dec.com.
+Because I am right in the middle of moving at the moment, all USmail should be
+sent to:
+
+Kevin Routley
+Digital Equipment Corporation
+ZKO2-3/N30
+110 Spitbrook Road
+Nashua, NH  03060
+
+instead of the address listed in the documentation file.

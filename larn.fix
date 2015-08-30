@@ -1,0 +1,89 @@
+This is a list of the fixes and enhancements made to create Larn V12.2 from
+Larn 12.0.  SPOILER ALERT!
+
+Changes made to create version 12.2 from 12.1:
+
+1.  Add messages to improve feedback to the user.
+
+2.  Improved screen drawing performance again.
+
+3.  Flying monsters (bats, floating eyes) are no longer affected by traps.
+
+4.  Added HACK-like objects, with 'original-objects' option.
+
+5.  Added 'bold-objects' option.
+
+6.  Fixed a bug where the game would apparently 'hang' for a long period of
+    time, especially just after killing a monster with a missile spell.
+
+7.  Prevented invulnerability when doing VPR on a throne or altar.
+
+8.  Scrolls of pulverization now have the same affect when directed against
+    an altar or fountain as they did directed against a throne.  VPR spell
+    cause a waterlord to appear when used near a fountain.
+
+9.  Added the '@' command and 'auto-pickup' option.
+
+10. Added 'prompt-on-objects' option.
+
+11. Improved monster movement performance again.
+
+12. You can now weild '-' to unweild your weapon.
+
+13. Waterlords can now be found in the dungeon, not just when washing at a
+    fountain.
+
+14. The Eye of Larn can now be sold in the Trading Post.
+
+15. Spells can now bounce off mirrors at an angle.
+
+
+Changes made to create version 12.1 from 12.0:
+
+1.  When drinking at a fountain, "improved sight" caused the "see invisible"
+    potion to be known by the player.  The player must now identify the potion
+    in the usual manner.
+
+2.  Falling through a pit told you the damage you received, but falling through
+    a trap door did not.  Made trap doors act the same as pits.
+
+3.  If you dropped a ring of dexterity/strength/cleverness that had been dulled
+    to a negative amount, the corresponding stat was permanently increased.  No
+    longer.
+
+4.  The potion of monster location would show invisible monsters as the floor
+    character on new levels.  Now prevented.
+
+5.  Selling all your gems at the bank could destroy items in your inventory.
+
+6.  Monster creation was being allowed on closed doors.  This was particularly
+    a problem with treasure rooms, since it meant that a monster much too
+    powerful for the player to handle was loose in the maze.  Monsters cannot
+    now be created on closed doors.
+
+7.  When entering a number (when entering gold amounts) you could not use the
+    backspace key to delete digits.  Fixed.
+
+8.  To make it more convenient when selling items in the Larn Trading Post, a
+    display of those items in the players inventory that can be sold has been
+    added.
+
+9.  Performance of the display has been improved slightly.
+
+10. Monster movement has been improved for large numbers of monsters.  It is
+    somewhat better on PC's, even with aggravation.
+
+11. I have added new mazes to LARN.MAZ.
+
+12. A Rogue-like command mode has been added, and is the default.  The
+    version 12.0 prompting mode has been preserved for those who like it,
+    accessible via a command line option.  Command letters have been added
+    to provide the ability to perform all the same actions as the prompt mode.
+    The help file and command line help have been updated.  When in command
+    mode, the player will automatically pick up objects, and can read, quaff,
+    eat, look at, and pick up objects that you are standing on.
+
+    In order to implement the new commands, the A and D commands from version
+    12.0 have been changed.  They are now ^A and I.  For consistancy, to see
+    the list of known spells at the spell prompt, 'I' also shows all known
+    spells.
